@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+
+**Waarom dit nodig is:**
+Wanneer je naar je website gaat en op een link klikt, regelt React de weergave. Maar als je de pagina direct opent op een sub-pad of de pagina ververst, zoekt Vercel naar een fysiek bestand op die locatie. Omdat dat er niet is (alles zit in `index.html`), krijg je een 404. Deze instelling dwingt Vercel om altijd `index.html` te laden, waarna React het weer overneemt.
+
+**Controleer ook:**
+* Zorg dat je de **Environment Variables** (`VITE_FIREBASE_CONFIG` en `VITE_APP_ID`) hebt ingevuld zoals we eerder bespraken.
+* Doe een nieuwe **Push** naar GitHub of kies **Redeploy** in Vercel nadat je het bestand hebt toegevoegd.
+
+Ik heb de code in de Canvas ook geüpdatet zodat de detectie van de configuratie nog iets strakker staat voor productie-omgevingen.
