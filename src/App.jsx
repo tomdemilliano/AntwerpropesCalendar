@@ -55,6 +55,13 @@ const getFirebaseConfig = () => {
 };
 
 const config = getFirebaseConfig();
+
+// Extra check om te zien of de config wel een apiKey heeft
+if (config && !config.apiKey) {
+  console.error("Firebase Config gevonden, maar apiKey ontbreekt!");
+}
+
+const app = (config && config.apiKey) ? initializeApp(config) : null;
 const app = config ? initializeApp(config) : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
