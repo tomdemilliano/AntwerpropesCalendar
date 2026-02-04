@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -8,12 +8,13 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
-  query 
+  query
 } from 'firebase/firestore';
 import { 
   getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  signInWithCustomToken,
+  signInAnonymously 
 } from 'firebase/auth';
 import { 
   Calendar, 
@@ -22,46 +23,22 @@ import {
   Plus, 
   Trash2, 
   Edit2, 
-  ChevronLeft, 
-  ChevronRight, 
   MapPin, 
   User, 
   Clock,
-  Info,
   LogOut,
   Users,
   Home,
   Euro,
-  Settings,
-  ChevronDown
+  Settings
 } from 'lucide-react';
 
-// Firebase Config Helpers
-const getEnvVar = (name) => {
-  try {
-    if (name === 'VITE_FIREBASE_CONFIG' && typeof __firebase_config !== 'undefined') return __firebase_config;
-    if (name === 'VITE_APP_ID' && typeof __app_id !== 'undefined') return __app_id;
-    const meta = (new Function('return import.meta'))();
-    if (meta?.env?.[name]) return meta.env[name];
-  } catch (e) {}
-  return null;
-};
-
-const getFirebaseConfig = () => {
-  const rawConfig = getEnvVar('VITE_FIREBASE_CONFIG');
-  if (!rawConfig) return null;
-  try {
-    return typeof rawConfig === 'string' 
-      ? JSON.parse(rawConfig.replace(/\\"/g, '"').replace(/^"|"$/g, '')) 
-      : rawConfig;
-  } catch (e) { return null; }
-};
-
-const config = getFirebaseConfig();
-const appId = getEnvVar('VITE_APP_ID') || 'antwerp-ropes-default';
-const app = (config && config.apiKey) ? initializeApp(config) : null;
-const auth = app ? getAuth(app) : null;
-const db = app ? getFirestore(app) : null;
+// --- FIREBASE INITIALISATIE ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
 
 const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
 
@@ -75,9 +52,8 @@ export default function App() {
   const [tarieven, setTarieven] = useState({});
   const [loading, setLoading] = useState(true);
   
-  const [view, setView] = useState('list'); // 'list', 'calendar', 'admin'
-  const [adminSubView, setAdminSubView] = useState('coaches'); // 'coaches', 'locaties', 'groepen', 'financien'
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [view, setView] = useState('list'); 
+  const [adminSubView, setAdminSubView] = useState('coaches'); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [adminPassword, setAdminPassword] = useState("");
@@ -91,29 +67,47 @@ export default function App() {
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
+  // Auth Effect
   useEffect(() => {
-    if (!auth) return;
-    signInAnonymously(auth).catch(console.error);
-    return onAuthStateChanged(auth, setUser);
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
   }, []);
 
-  // Sync Data
+  // Sync Data Effect
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user) return;
 
-    const sync = (collectionName, setter) => {
+    const syncCollection = (collectionName, setter) => {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', collectionName));
-      return onSnapshot(q, (s) => {
-        setter(s.docs.map(d => ({ id: d.id, ...d.data() })));
-        if (collectionName === 'planning') setLoading(false);
-      });
+      return onSnapshot(q, 
+        (snapshot) => {
+          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setter(data);
+          if (collectionName === 'planning') setLoading(false);
+        },
+        (error) => {
+          console.error(`Error fetching ${collectionName}:`, error);
+        }
+      );
     };
 
-    const unsubEvents = sync('planning', setEvents);
-    const unsubCoaches = sync('coaches', setCoaches);
-    const unsubLocaties = sync('locaties', setLocaties);
-    const unsubGroepen = sync('groepen', setGroepen);
-    const unsubTarieven = sync('tarieven', (data) => {
+    const unsubEvents = syncCollection('planning', setEvents);
+    const unsubCoaches = syncCollection('coaches', setCoaches);
+    const unsubLocaties = syncCollection('locaties', setLocaties);
+    const unsubGroepen = syncCollection('groepen', setGroepen);
+    const unsubTarieven = syncCollection('tarieven', (data) => {
         const map = {};
         data.forEach(t => map[t.seizoen] = t);
         setTarieven(map);
@@ -130,51 +124,58 @@ export default function App() {
       setIsAdmin(true);
       setIsModalOpen(false);
       setAdminPassword("");
+      setLoginError("");
     } else {
       setLoginError("Foutief wachtwoord");
     }
   };
 
   const saveData = async (col, data, id = null) => {
-    if (!isAdmin || !db) return;
+    if (!isAdmin || !user) return;
     setIsSaving(true);
     try {
-      const path = ['artifacts', appId, 'public', 'data', col];
       if (id) {
-        await updateDoc(doc(db, ...path, id), data);
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id), data);
       } else {
-        await addDoc(collection(db, ...path), data);
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', col), data);
       }
       setIsModalOpen(false);
       setEditingItem(null);
-    } catch (e) { console.error(e); }
-    setIsSaving(false);
+    } catch (e) { 
+      console.error("Fout bij opslaan:", e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deleteItem = async (col, id) => {
-    if (!isAdmin || !db || !window.confirm("Zeker weten?")) return;
+    if (!isAdmin || !user || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Fout bij verwijderen:", e); }
   };
 
-  // Render Helpers
+  // Helper functions
   const getCoachName = (id) => {
     const c = coaches.find(x => x.id === id);
-    return c ? `${c.voornaam} ${c.naam}` : 'N.t.b.';
+    return c ? `${c.voornaam} ${c.naam}` : 'Geen coach';
   };
 
   const getLocatieName = (id) => {
     const l = locaties.find(x => x.id === id);
-    return l ? l.benaming : 'N.t.b.';
+    return l ? l.benaming : 'Geen locatie';
   };
 
   const getGroepName = (id) => {
     const g = groepen.find(x => x.id === id);
-    return g ? g.benaming : 'Algemeen';
+    return g ? g.benaming : 'Geen groep';
   };
 
-  if (!config?.apiKey) return <div className="p-10 text-center font-bold">Configuratie ontbreekt in Vercel.</div>;
+  if (loading && !user) return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
@@ -230,14 +231,20 @@ export default function App() {
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-black capitalize">{adminSubView}</h2>
                     <button 
-                        onClick={() => { setEditingItem(null); setIsModalOpen(adminSubView); }}
+                        onClick={() => { 
+                            setEditingItem(null); 
+                            if(adminSubView === 'coaches') setCoachForm({ voornaam: '', naam: '', email: '' });
+                            if(adminSubView === 'locaties') setLocatieForm({ benaming: '', adres: '', emailContact: '', boekingUrl: '' });
+                            if(adminSubView === 'groepen') setGroepForm({ benaming: '' });
+                            if(adminSubView === 'financien') setTariefForm({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
+                            setIsModalOpen(adminSubView); 
+                        }}
                         className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100 transition"
                     >
                         <Plus size={20} />
                     </button>
                 </div>
 
-                {/* Subview Content */}
                 {adminSubView === 'coaches' && (
                     <div className="grid gap-4">
                         {coaches.map(c => (
@@ -306,7 +313,12 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-4">
-            {events.map(event => (
+            {events.length === 0 && !loading && (
+              <div className="text-center p-20 bg-white rounded-[40px] border-2 border-dashed border-slate-200">
+                <p className="font-bold text-slate-400">Nog geen trainingen gepland.</p>
+              </div>
+            )}
+            {events.sort((a,b) => new Date(a.datum) - new Date(b.datum)).map(event => (
               <div key={event.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 p-5 group hover:shadow-md transition-all">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-col gap-1">
@@ -361,7 +373,7 @@ export default function App() {
             {isModalOpen === 'login' && (
               <form onSubmit={handleAdminLogin} className="space-y-4">
                 <h2 className="text-2xl font-black text-center mb-6">Beheerder Toegang</h2>
-                <input autoFocus type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Wachtwoord" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-600 outline-none font-bold" />
+                <input autoFocus type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Wachtwoord" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-600 outline-none font-bold text-center" />
                 {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Terug</button>
@@ -374,20 +386,20 @@ export default function App() {
               <form onSubmit={(e) => { e.preventDefault(); saveData('planning', eventForm, editingItem?.id); }} className="space-y-4">
                 <h2 className="text-2xl font-black mb-4">{editingItem ? 'Bewerken' : 'Nieuwe Training'}</h2>
                 <div className="space-y-3">
-                    <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold text-slate-700 border border-slate-100" />
+                    <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                     <input type="text" placeholder="Uren (bv. 18:30 - 20:30)" value={eventForm.uren} onChange={(e) => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                     
-                    <select value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100 appearance-none">
+                    <select required value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
                         <option value="">Selecteer Locatie</option>
                         {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
                     </select>
 
-                    <select value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100 appearance-none">
+                    <select required value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
                         <option value="">Selecteer Coach</option>
                         {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
                     </select>
 
-                    <select value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100 appearance-none">
+                    <select required value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
                         <option value="">Selecteer Groep</option>
                         {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
                     </select>
@@ -395,9 +407,9 @@ export default function App() {
                     <textarea placeholder="Extra opmerking..." value={eventForm.opmerking} onChange={(e) => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold h-20 border border-slate-100" />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400" disabled={isSaving}>Annuleer</button>
-                  <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black flex items-center justify-center" disabled={isSaving}>
-                    {isSaving ? "Laden..." : (editingItem ? 'Opslaan' : 'Toevoegen')}
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Annuleer</button>
+                  <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black">
+                    {isSaving ? "Even geduld..." : (editingItem ? 'Opslaan' : 'Toevoegen')}
                   </button>
                 </div>
               </form>
@@ -424,7 +436,7 @@ export default function App() {
                 <input type="text" placeholder="Benaming (bv. Sporthal X)" value={locatieForm.benaming} onChange={(e) => setLocatieForm({...locatieForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
                 <input type="text" placeholder="Adres" value={locatieForm.adres} onChange={(e) => setLocatieForm({...locatieForm, adres: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
                 <input type="email" placeholder="Email contactpersoon" value={locatieForm.emailContact} onChange={(e) => setLocatieForm({...locatieForm, emailContact: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
-                <input type="url" placeholder="URL Boeking" value={locatieForm.boekingUrl} onChange={(e) => setLocatieForm({...locatieForm, boekingUrl: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
+                <input type="url" placeholder="URL Boeking (https://...)" value={locatieForm.boekingUrl} onChange={(e) => setLocatieForm({...locatieForm, boekingUrl: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Terug</button>
                   <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black">Opslaan</button>
@@ -450,11 +462,11 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3">
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">Coach /u</label>
-                        <input type="number" step="0.5" value={tariefForm.coachUur} onChange={(e) => setTariefForm({...tariefForm, coachUur: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
+                        <input type="number" step="0.5" value={tariefForm.coachUur} onChange={(e) => setTariefForm({...tariefForm, coachUur: parseFloat(e.target.value) || 0})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
                     </div>
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">Locatie /u</label>
-                        <input type="number" step="0.5" value={tariefForm.locatieUur} onChange={(e) => setTariefForm({...tariefForm, locatieUur: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
+                        <input type="number" step="0.5" value={tariefForm.locatieUur} onChange={(e) => setTariefForm({...tariefForm, locatieUur: parseFloat(e.target.value) || 0})} className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-slate-100" />
                     </div>
                 </div>
                 <div className="flex gap-3 pt-4">
