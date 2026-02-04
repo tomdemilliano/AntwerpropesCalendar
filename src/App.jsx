@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { 
   getFirestore, 
@@ -7,8 +7,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  doc, 
-  query
+  doc 
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -30,7 +29,6 @@ import {
   Home,
   Settings,
   AlertCircle,
-  RefreshCw,
   Euro,
   Info
 } from 'lucide-react';
@@ -61,38 +59,58 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Formulieren states
+  // Form states
   const [eventForm, setEventForm] = useState({ datum: '', uren: '', locatieId: '', groepId: '', coachId: '', opmerking: '' });
   const [coachForm, setCoachForm] = useState({ voornaam: '', naam: '', email: '' });
   const [locatieForm, setLocatieForm] = useState({ benaming: '', adres: '', emailContact: '', boekingUrl: '' });
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  // Veilige initialisatie van Firebase binnen useEffect
-  useEffect(() => {
-    const initFirebase = async () => {
-      try {
-        // Check of de variabelen bestaan (voorkomt ReferenceError)
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const envAppId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
+  // 1. Robuuste Firebase Configuratie Helper
+  const getFirebaseConfig = useCallback(() => {
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        return typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+      }
+      if (typeof window !== 'undefined' && window.__firebase_config) {
+        return typeof window.__firebase_config === 'string' ? JSON.parse(window.__firebase_config) : window.__firebase_config;
+      }
+      // Fallbacks voor verschillende omgevingen
+      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_FIREBASE_CONFIG) {
+        return JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG);
+      }
+    } catch (e) {
+      console.error("Config parse error:", e);
+    }
+    return null;
+  }, []);
 
-        if (!configStr) {
-          // Als het nog niet geladen is, wacht even en probeer opnieuw
-          setTimeout(initFirebase, 500);
+  // 2. Firebase Initialisatie
+  useEffect(() => {
+    const startFirebase = async () => {
+      try {
+        const config = getFirebaseConfig();
+        
+        if (!config) {
+          // Probeer het over 500ms nog eens als de variabelen nog niet zijn geïnjecteerd
+          setTimeout(startFirebase, 500);
           return;
         }
 
-        const config = JSON.parse(configStr);
         const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApps()[0];
         const firebaseAuth = getAuth(firebaseApp);
         const firebaseDb = getFirestore(firebaseApp);
+        
+        // App ID ophalen
+        const currentAppId = typeof __app_id !== 'undefined' ? __app_id : (typeof window !== 'undefined' && window.__app_id ? window.__app_id : 'sportclub-admin-v1');
 
         setDb(firebaseDb);
         setAuth(firebaseAuth);
-        setAppId(envAppId);
+        setAppId(currentAppId);
 
-        // Auth proces
+        // Authenticatie met Token of Anoniem
+        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : (typeof window !== 'undefined' ? window.__initial_auth_token : null);
+
         if (token) {
           await signInWithCustomToken(firebaseAuth, token);
         } else {
@@ -101,52 +119,54 @@ export default function App() {
 
         onAuthStateChanged(firebaseAuth, (u) => {
           setUser(u);
+          setLoading(false);
         });
 
       } catch (err) {
-        console.error("Firebase init error:", err);
-        setErrorMessage("Database configuratie kon niet worden geladen.");
+        console.error("Fout bij opstarten:", err);
+        setErrorMessage("Verbinding met de database mislukt.");
         setLoading(false);
       }
     };
 
-    initFirebase();
-  }, []);
+    startFirebase();
+  }, [getFirebaseConfig]);
 
-  // Data Sync Effect (Start pas als User, DB en AppId er zijn)
+  // 3. Data synchronisatie (Public Data Pattern)
   useEffect(() => {
     if (!user || !db || !appId) return;
 
-    const syncCollection = (colName, setter) => {
-      const colRef = collection(db, 'artifacts', appId, 'public', 'data', colName);
+    const setupSync = (collectionName, setter) => {
+      // Gebruik het verplichte pad: /artifacts/{appId}/public/data/{collection}
+      const path = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
       
-      return onSnapshot(colRef, 
-        (snap) => {
-          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          if (colName === 'tarieven') {
-            const map = {};
-            data.forEach(t => map[t.seizoen] = t);
-            setter(map);
-          } else {
-            setter(data);
-          }
-          if (colName === 'planning') setLoading(false);
-        },
-        (err) => {
-          console.error(`Sync error ${colName}:`, err);
+      return onSnapshot(path, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (collectionName === 'tarieven') {
+          const map = {};
+          items.forEach(t => map[t.seizoen] = t);
+          setter(map);
+        } else {
+          setter(items);
         }
-      );
+      }, (error) => {
+        console.error(`Sync error voor ${collectionName}:`, error);
+      });
     };
 
-    const unsubs = [
-      syncCollection('planning', setEvents),
-      syncCollection('coaches', setCoaches),
-      syncCollection('locaties', setLocaties),
-      syncCollection('groepen', setGroepen),
-      syncCollection('tarieven', setTarieven)
-    ];
+    const unsubEvents = setupSync('planning', setEvents);
+    const unsubCoaches = setupSync('coaches', setCoaches);
+    const unsubLocaties = setupSync('locaties', setLocaties);
+    const unsubGroepen = setupSync('groepen', setGroepen);
+    const unsubTarieven = setupSync('tarieven', setTarieven);
 
-    return () => unsubs.forEach(fn => fn());
+    return () => {
+      unsubEvents();
+      unsubCoaches();
+      unsubLocaties();
+      unsubGroepen();
+      unsubTarieven();
+    };
   }, [user, db, appId]);
 
   const handleAdminLogin = (e) => {
@@ -161,39 +181,30 @@ export default function App() {
     }
   };
 
-  const saveData = async (col, data, id = null) => {
-    if (!isAdmin || !user || !db) {
-      setErrorMessage("U heeft geen toestemming of database is niet verbonden.");
-      return;
-    }
-    
+  const handleSave = async (col, data, id = null) => {
+    if (!isAdmin || !db) return;
     setIsSaving(true);
-    setErrorMessage("");
-    
     try {
       if (id) {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
-        await updateDoc(docRef, data);
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id), data);
       } else {
-        const colRef = collection(db, 'artifacts', appId, 'public', 'data', col);
-        await addDoc(colRef, data);
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', col), data);
       }
       setIsModalOpen(false);
       setEditingItem(null);
-    } catch (e) {
-      setErrorMessage(`Opslaan mislukt: ${e.message}`);
+    } catch (err) {
+      setErrorMessage("Opslaan mislukt. Controleer rechten.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const deleteItem = async (col, id) => {
-    if (!isAdmin || !user || !db || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
+  const handleDelete = async (col, id) => {
+    if (!isAdmin || !db || !window.confirm("Dit item verwijderen?")) return;
     try {
-      const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
-      await deleteDoc(docRef);
-    } catch (e) {
-      setErrorMessage(`Verwijderen mislukt: ${e.message}`);
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
+    } catch (err) {
+      setErrorMessage("Verwijderen mislukt.");
     }
   };
 
@@ -201,21 +212,23 @@ export default function App() {
   const getLocatieName = (id) => locaties.find(x => x.id === id)?.benaming || 'Onbekend';
   const getGroepName = (id) => groepen.find(x => x.id === id)?.benaming || 'Algemeen';
 
-  if (loading && !errorMessage) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-600 text-white">
-      <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-6"></div>
-      <h2 className="text-xl font-black mb-2">Antwerp Ropes</h2>
-      <p className="text-sm opacity-60">Laden...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-700 text-white p-6 text-center">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-6"></div>
+        <h2 className="text-xl font-black mb-2 tracking-tight">Antwerp Ropes</h2>
+        <p className="text-sm opacity-60 max-w-xs">De beveiligde verbinding met de database wordt opgezet...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-10">
-      <header className="bg-indigo-700 text-white p-4 shadow-lg sticky top-0 z-30">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+      <header className="bg-indigo-700 text-white p-4 shadow-lg sticky top-0 z-40">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="cursor-pointer" onClick={() => setView('list')}>
-            <h1 className="text-xl font-black tracking-tight">Antwerp Ropes</h1>
-            <p className="text-[10px] uppercase font-bold opacity-70">Club Management</p>
+            <h1 className="text-xl font-black">Antwerp Ropes</h1>
+            <p className="text-[10px] uppercase opacity-70">Club Management</p>
           </div>
           <div className="flex gap-2">
             {!isAdmin ? (
@@ -235,19 +248,18 @@ export default function App() {
       </header>
 
       {errorMessage && (
-        <div className="max-w-5xl mx-auto mt-4 px-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
-            <AlertCircle size={18} />
-            <span className="text-sm font-bold">{errorMessage}</span>
-            <button onClick={() => setErrorMessage("")} className="ml-auto text-red-400">×</button>
+        <div className="max-w-5xl mx-auto m-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex justify-between items-center shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <AlertCircle size={16} /> {errorMessage}
           </div>
+          <button onClick={() => setErrorMessage("")} className="font-black text-xl leading-none">&times;</button>
         </div>
       )}
 
       <main className="max-w-5xl mx-auto p-4 md:p-6">
         {view === 'admin' ? (
-          <div className="space-y-6">
-            <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
               {[
                 { id: 'planning', label: 'Planning', icon: Calendar },
                 { id: 'coaches', label: 'Coaches', icon: Users },
@@ -258,16 +270,16 @@ export default function App() {
                 <button 
                   key={tab.id}
                   onClick={() => setAdminSubView(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition shrink-0 ${adminSubView === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm shrink-0 transition ${adminSubView === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
                 >
                   <tab.icon size={16} /> {tab.label}
                 </button>
               ))}
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[400px]">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black capitalize">{adminSubView} Beheer</h2>
+                <h2 className="text-xl font-black capitalize">{adminSubView}</h2>
                 {adminSubView !== 'tarieven' && (
                   <button 
                     onClick={() => {
@@ -278,214 +290,179 @@ export default function App() {
                       if(adminSubView === 'groepen') setGroepForm({ benaming: '' });
                       setIsModalOpen(adminSubView);
                     }}
-                    className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition"
+                    className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 shadow-sm"
                   >
                     <Plus size={20} />
                   </button>
                 )}
               </div>
 
-              {adminSubView === 'planning' && (
-                <div className="space-y-3">
-                  {events.sort((a,b) => new Date(a.datum) - new Date(b.datum)).map(e => (
-                    <div key={e.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase text-indigo-600">{getGroepName(e.groepId)}</span>
-                        <span className="font-bold">{new Date(e.datum).toLocaleDateString('nl-BE')}</span>
-                        <span className="text-xs text-slate-500">{e.uren} - {getLocatieName(e.locatieId)}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingItem(e); setEventForm(e); setIsModalOpen('planning'); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"><Edit2 size={16}/></button>
-                        <button onClick={() => deleteItem('planning', e.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                      </div>
+              <div className="space-y-3">
+                {adminSubView === 'planning' && events.sort((a,b) => new Date(a.datum) - new Date(b.datum)).map(e => (
+                  <div key={e.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition">
+                    <div>
+                      <p className="font-black text-indigo-700">{new Date(e.datum).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{e.uren} — {getLocatieName(e.locatieId)}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-medium">{getCoachName(e.coachId)} | {getGroepName(e.groepId)}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {adminSubView === 'coaches' && (
-                <div className="grid gap-3">
-                  {coaches.map(c => (
-                    <div key={c.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div><p className="font-bold">{c.voornaam} {c.naam}</p><p className="text-xs text-slate-500">{c.email}</p></div>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingItem(c); setCoachForm(c); setIsModalOpen('coaches'); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"><Edit2 size={16}/></button>
-                        <button onClick={() => deleteItem('coaches', c.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                      </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditingItem(e); setEventForm(e); setIsModalOpen('planning'); }} className="p-2 text-indigo-600 hover:bg-white rounded-lg shadow-sm"><Edit2 size={16}/></button>
+                      <button onClick={() => handleDelete('planning', e.id)} className="p-2 text-red-600 hover:bg-white rounded-lg shadow-sm"><Trash2 size={16}/></button>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {adminSubView === 'locaties' && (
-                <div className="grid gap-3">
-                  {locaties.map(l => (
-                    <div key={l.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div><p className="font-bold">{l.benaming}</p><p className="text-xs text-slate-500">{l.adres}</p></div>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingItem(l); setLocatieForm(l); setIsModalOpen('locaties'); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"><Edit2 size={16}/></button>
-                        <button onClick={() => deleteItem('locaties', l.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {adminSubView === 'groepen' && (
-                <div className="grid gap-3">
-                  {groepen.map(g => (
-                    <div key={g.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="font-bold">{g.benaming}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingItem(g); setGroepForm(g); setIsModalOpen('groepen'); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"><Edit2 size={16}/></button>
-                        <button onClick={() => deleteItem('groepen', g.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {adminSubView === 'tarieven' && (
-                <div className="space-y-6">
-                  <div className="bg-indigo-50 p-4 rounded-2xl flex gap-3">
-                    <Info className="text-indigo-600 shrink-0" />
-                    <p className="text-xs text-indigo-900 font-medium">Stel hier de uurtarieven in voor de automatische facturatieberekening.</p>
                   </div>
-                  <form onSubmit={(e) => { e.preventDefault(); saveData('tarieven', tariefForm, Object.values(tarieven).find(t => t.seizoen === tariefForm.seizoen)?.id); }} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-slate-400 ml-2">Seizoen</label>
-                        <select value={tariefForm.seizoen} onChange={(e) => setTariefForm({...tariefForm, seizoen: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                          <option>2023-2024</option>
-                          <option>2024-2025</option>
-                          <option>2025-2026</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-slate-400 ml-2">Coach / u</label>
-                        <input type="number" step="0.5" value={tariefForm.coachUur} onChange={(e) => setTariefForm({...tariefForm, coachUur: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-slate-400 ml-2">Zaal / u</label>
-                        <input type="number" step="0.5" value={tariefForm.locatieUur} onChange={(e) => setTariefForm({...tariefForm, locatieUur: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                      </div>
+                ))}
+
+                {adminSubView === 'coaches' && coaches.map(c => (
+                  <div key={c.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                    <p className="font-bold">{c.voornaam} {c.naam}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditingItem(c); setCoachForm(c); setIsModalOpen('coaches'); }} className="p-2 text-indigo-600 hover:bg-white rounded-lg"><Edit2 size={16}/></button>
+                      <button onClick={() => handleDelete('coaches', c.id)} className="p-2 text-red-600 hover:bg-white rounded-lg"><Trash2 size={16}/></button>
                     </div>
-                    <button type="submit" disabled={isSaving} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black">{isSaving ? 'Opslaan...' : 'Tarieven bijwerken'}</button>
-                  </form>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {events.length === 0 ? (
-              <div className="bg-white rounded-[40px] p-20 text-center border-2 border-dashed border-slate-200">
-                <Calendar className="mx-auto text-slate-200 mb-4" size={64} />
-                <p className="font-bold text-slate-400">Nog geen trainingen gepland.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {events.sort((a,b) => new Date(a.datum) - new Date(b.datum)).map(event => (
-                  <div key={event.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">{getGroepName(event.groepId)}</span>
-                        <h3 className="text-lg font-black mt-1">{event.opmerking || 'Training'}</h3>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-black text-indigo-600">{new Date(event.datum).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">{DAGEN[new Date(event.datum).getDay()]}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-slate-500 text-sm font-medium">
-                      <div className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><Clock size={14}/></div>{event.uren}</div>
-                      <div className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><MapPin size={14}/></div>{getLocatieName(event.locatieId)}</div>
-                      <div className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><User size={14}/></div>{getCoachName(event.coachId)}</div>
+                  </div>
+                ))}
+
+                {adminSubView === 'locaties' && locaties.map(l => (
+                  <div key={l.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                    <p className="font-bold">{l.benaming}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditingItem(l); setLocatieForm(l); setIsModalOpen('locaties'); }} className="p-2 text-indigo-600 hover:bg-white rounded-lg"><Edit2 size={16}/></button>
+                      <button onClick={() => handleDelete('locaties', l.id)} className="p-2 text-red-600 hover:bg-white rounded-lg"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 animate-in slide-in-from-bottom-4 duration-500">
+            {events.length === 0 ? (
+              <div className="text-center py-24 bg-white rounded-[40px] border-2 border-dashed border-slate-200">
+                <Calendar className="mx-auto text-slate-200 mb-4" size={56} />
+                <p className="text-slate-400 font-bold text-lg">Geen geplande trainingen</p>
+                <p className="text-slate-300 text-sm">Nieuwe sessies verschijnen hier zodra de admin ze toevoegt.</p>
+              </div>
+            ) : (
+              events.sort((a,b) => new Date(a.datum) - new Date(b.datum)).map(event => (
+                <div key={event.id} className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                  <div className="flex justify-between items-start mb-5">
+                    <div>
+                      <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg uppercase tracking-wider">{getGroepName(event.groepId)}</span>
+                      <h3 className="text-xl font-black mt-2 text-slate-800">{event.opmerking || 'Training'}</h3>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-indigo-600 text-xl font-black leading-none">{new Date(event.datum).toLocaleDateString('nl-BE', {day:'2-digit', month:'short'})}</p>
+                      <p className="text-[10px] uppercase text-slate-400 font-bold mt-1">{DAGEN[new Date(event.datum).getDay()]}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-slate-500 font-bold border-t border-slate-50 pt-4">
+                    <span className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><Clock size={16}/></div> {event.uren}</span>
+                    <span className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><MapPin size={16}/></div> {getLocatieName(event.locatieId)}</span>
+                    <span className="flex items-center gap-2"><div className="p-1.5 bg-slate-50 rounded-lg text-indigo-500"><User size={16}/></div> {getCoachName(event.coachId)}</span>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
       </main>
 
-      {/* Modals */}
-      {isModalOpen && isModalOpen !== 'login' && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8 animate-in zoom-in duration-200">
-            <h2 className="text-2xl font-black mb-6">{editingItem ? 'Bewerken' : 'Nieuw Toevoegen'}</h2>
-            
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (isModalOpen === 'planning') saveData('planning', eventForm, editingItem?.id);
-              if (isModalOpen === 'coaches') saveData('coaches', coachForm, editingItem?.id);
-              if (isModalOpen === 'locaties') saveData('locaties', locatieForm, editingItem?.id);
-              if (isModalOpen === 'groepen') saveData('groepen', groepForm, editingItem?.id);
-            }} className="space-y-4">
-              
-              {isModalOpen === 'planning' && (
-                <div className="space-y-3">
-                  <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="text" placeholder="Uren (bv. 18:30 - 20:30)" required value={eventForm.uren} onChange={(e) => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <select required value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Selecteer Locatie</option>
-                    {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
-                  </select>
-                  <select required value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Selecteer Coach</option>
-                    {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
-                  </select>
-                  <select required value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Selecteer Groep</option>
-                    {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
-                  </select>
-                  <textarea placeholder="Opmerking" value={eventForm.opmerking} onChange={(e) => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100 h-20" />
-                </div>
-              )}
-
-              {isModalOpen === 'coaches' && (
-                <div className="space-y-3">
-                  <input type="text" placeholder="Voornaam" required value={coachForm.voornaam} onChange={(e) => setCoachForm({...coachForm, voornaam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="text" placeholder="Naam" required value={coachForm.naam} onChange={(e) => setCoachForm({...coachForm, naam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="email" placeholder="E-mail" value={coachForm.email || ''} onChange={(e) => setCoachForm({...coachForm, email: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                </div>
-              )}
-
-              {isModalOpen === 'locaties' && (
-                <div className="space-y-3">
-                  <input type="text" placeholder="Benaming" required value={locatieForm.benaming} onChange={(e) => setLocatieForm({...locatieForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="text" placeholder="Adres" value={locatieForm.adres || ''} onChange={(e) => setLocatieForm({...locatieForm, adres: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                </div>
-              )}
-
-              {isModalOpen === 'groepen' && (
-                <div className="space-y-3">
-                  <input type="text" placeholder="Groepsnaam" required value={groepForm.benaming} onChange={(e) => setGroepForm({...groepForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Annuleer</button>
-                <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black">{isSaving ? 'Opslaan...' : 'Bevestigen'}</button>
-              </div>
-            </form>
-          </div>
+      {/* Login Modal */}
+      {isModalOpen === 'login' && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleAdminLogin} className="bg-white p-8 rounded-[40px] w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Lock size={32} />
+            </div>
+            <h2 className="text-2xl font-black mb-2 text-center">Beheerder Login</h2>
+            <p className="text-slate-400 text-center text-sm mb-8 font-medium">Toegang beperkt tot geautoriseerde coaches.</p>
+            <input 
+              autoFocus
+              type="password" 
+              value={adminPassword} 
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Wachtwoord"
+              className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-600 outline-none font-bold text-center mb-4 transition"
+            />
+            {loginError && <p className="text-red-500 text-xs font-bold mb-4 text-center">{loginError}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Terug</button>
+              <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-indigo-200">Login</button>
+            </div>
+          </form>
         </div>
       )}
 
-      {isModalOpen === 'login' && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleAdminLogin} className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl text-center">
-            <Lock className="mx-auto text-indigo-600 mb-4" size={40} />
-            <h2 className="text-2xl font-black mb-6">Admin Login</h2>
-            <input autoFocus type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Wachtwoord" className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-600 outline-none font-bold text-center mb-4" />
-            {loginError && <p className="text-red-500 text-xs font-bold mb-4">{loginError}</p>}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Sluiten</button>
-              <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black">Login</button>
-            </div>
-          </form>
+      {/* Admin Form Modals */}
+      {isModalOpen && isModalOpen !== 'login' && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white p-8 rounded-[40px] w-full max-w-lg my-8 shadow-2xl animate-in slide-in-from-bottom-8 duration-300">
+            <h2 className="text-2xl font-black mb-6 capitalize">{isModalOpen} details</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if(isModalOpen === 'planning') handleSave('planning', eventForm, editingItem?.id);
+              if(isModalOpen === 'coaches') handleSave('coaches', coachForm, editingItem?.id);
+              if(isModalOpen === 'locaties') handleSave('locaties', locatieForm, editingItem?.id);
+              if(isModalOpen === 'groepen') handleSave('groepen', groepForm, editingItem?.id);
+            }} className="space-y-4">
+              {isModalOpen === 'planning' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Datum</label>
+                      <input type="date" required value={eventForm.datum} onChange={e => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tijd (bv 18-20u)</label>
+                      <input type="text" placeholder="18:00 - 20:00" required value={eventForm.uren} onChange={e => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                    </div>
+                  </div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Locatie</label>
+                  <select required value={eventForm.locatieId} onChange={e => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold">
+                    <option value="">Kies locatie...</option>
+                    {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
+                  </select>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Coach & Groep</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <select required value={eventForm.coachId} onChange={e => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold">
+                      <option value="">Coach...</option>
+                      {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
+                    </select>
+                    <select required value={eventForm.groepId} onChange={e => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold">
+                      <option value="">Groep...</option>
+                      {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
+                    </select>
+                  </div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Titel / Info</label>
+                  <input type="text" placeholder="bv. Kersttraining" value={eventForm.opmerking} onChange={e => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                </div>
+              )}
+              {isModalOpen === 'coaches' && (
+                <div className="space-y-3">
+                  <input placeholder="Voornaam" required value={coachForm.voornaam} onChange={e => setCoachForm({...coachForm, voornaam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                  <input placeholder="Achternaam" required value={coachForm.naam} onChange={e => setCoachForm({...coachForm, naam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                  <input type="email" placeholder="E-mail (optioneel)" value={coachForm.email || ''} onChange={e => setCoachForm({...coachForm, email: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                </div>
+              )}
+              {isModalOpen === 'locaties' && (
+                <div className="space-y-3">
+                  <input placeholder="Naam locatie" required value={locatieForm.benaming} onChange={e => setLocatieForm({...locatieForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                  <input placeholder="Adres" value={locatieForm.adres || ''} onChange={e => setLocatieForm({...locatieForm, adres: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                </div>
+              )}
+              {isModalOpen === 'groepen' && (
+                <div className="space-y-3">
+                  <input placeholder="Naam groep (bv. Competitie)" required value={groepForm.benaming} onChange={e => setGroepForm({...groepForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-100 outline-none font-bold" />
+                </div>
+              )}
+              <div className="flex gap-2 pt-6">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Annuleer</button>
+                <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-indigo-100 disabled:opacity-50">
+                  {isSaving ? 'Bezig...' : 'Opslaan'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
