@@ -62,7 +62,6 @@ if (config && !config.apiKey) {
 }
 
 const app = (config && config.apiKey) ? initializeApp(config) : null;
-const app = config ? initializeApp(config) : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
 
