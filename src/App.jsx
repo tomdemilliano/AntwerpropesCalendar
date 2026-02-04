@@ -18,7 +18,6 @@ import {
 } from 'firebase/auth';
 import { 
   Calendar, 
-  List, 
   Lock, 
   Plus, 
   Trash2, 
@@ -31,21 +30,22 @@ import {
   Home,
   Settings,
   AlertCircle,
-  Activity,
   RefreshCw,
   Euro,
-  ChevronRight,
   Info
 } from 'lucide-react';
+
+// Configuratie en Initialisatie BUITEN de component (Systeemvereiste)
+const firebaseConfig = JSON.parse(__firebase_config);
+const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
 
 const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
 
 export default function App() {
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
   const [user, setUser] = useState(null);
-  const [appId, setAppId] = useState('sportclub-admin-v1');
-  
   const [isAdmin, setIsAdmin] = useState(false);
   const [events, setEvents] = useState([]);
   const [coaches, setCoaches] = useState([]);
@@ -54,7 +54,6 @@ export default function App() {
   const [tarieven, setTarieven] = useState({});
   
   const [loading, setLoading] = useState(true);
-  const [debugLogs, setDebugLogs] = useState(["Systeem initialiseren..."]);
   const [errorMessage, setErrorMessage] = useState("");
   
   const [view, setView] = useState('list'); 
@@ -72,119 +71,65 @@ export default function App() {
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  const addLog = (msg) => {
-    console.log(`[DEBUG] ${msg}`);
-    setDebugLogs(prev => [...prev.slice(-8), msg]);
-  };
-
-  const getFirebaseConfig = () => {
-    try {
-      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-        return typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-      }
-      if (window.__firebase_config) {
-        return typeof window.__firebase_config === 'string' ? JSON.parse(window.__firebase_config) : window.__firebase_config;
-      }
-      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_FIREBASE_CONFIG) {
-        return JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG);
-      }
-      if (typeof process !== 'undefined' && process.env && process.env.VITE_FIREBASE_CONFIG) {
-        return JSON.parse(process.env.VITE_FIREBASE_CONFIG);
-      }
-    } catch (e) {
-      addLog("Fout bij parsen van config.");
-    }
-    return null;
-  };
-
+  // 1. Authenticatie Effect
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 30;
-
-    const boot = async () => {
-      attempts++;
-      const config = getFirebaseConfig();
-      const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : window.__initial_auth_token;
-      const envAppId = typeof __app_id !== 'undefined' ? __app_id : window.__app_id;
-
-      if (!config) {
-        if (attempts % 5 === 0) addLog(`Zoeken naar configuratie (poging ${attempts}/30)...`);
-        if (attempts >= maxAttempts) {
-          setErrorMessage("Geen database configuratie gevonden in de omgeving.");
-          setLoading(false);
-          return;
-        }
-        setTimeout(boot, 200);
-        return;
-      }
-
-      addLog("Configuratie gevonden! Verbinding maken...");
-
+    const initAuth = async () => {
       try {
-        const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApps()[0];
-        const firebaseAuth = getAuth(firebaseApp);
-        const firebaseDb = getFirestore(firebaseApp);
-
-        setDb(firebaseDb);
-        setAuth(firebaseAuth);
-        if (envAppId) setAppId(envAppId);
-
-        if (token) {
-          addLog("Inloggen met systeem-token...");
-          await signInWithCustomToken(firebaseAuth, token);
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          addLog("Anoniem inloggen...");
-          await signInAnonymously(firebaseAuth);
+          await signInAnonymously(auth);
         }
-
-        onAuthStateChanged(firebaseAuth, (u) => {
-          if (u) {
-            addLog("Verbinding succesvol.");
-            setUser(u);
-          } else {
-            setLoading(false);
-          }
-        });
       } catch (err) {
-        addLog(`Fout: ${err.message}`);
-        setErrorMessage(err.message);
-        setLoading(false);
+        console.error("Auth error:", err);
+        setErrorMessage("Authenticatie mislukt.");
       }
     };
-
-    boot();
+    
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
   }, []);
 
+  // 2. Data Sync Effect (Start pas als User er is)
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user) return;
 
-    const setupSync = (colName, setter) => {
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', colName));
-      return onSnapshot(q, (snap) => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (colName === 'tarieven') {
-          const map = {};
-          data.forEach(t => map[t.seizoen] = t);
-          setter(map);
-        } else {
-          setter(data);
+    const syncCollection = (colName, setter) => {
+      // RULE 1: Gebruik het exacte pad /artifacts/{appId}/public/data/{collectionName}
+      const colRef = collection(db, 'artifacts', appId, 'public', 'data', colName);
+      
+      return onSnapshot(colRef, 
+        (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (colName === 'tarieven') {
+            const map = {};
+            data.forEach(t => map[t.seizoen] = t);
+            setter(map);
+          } else {
+            setter(data);
+          }
+          if (colName === 'planning') setLoading(false);
+        },
+        (err) => {
+          console.error(`Sync error ${colName}:`, err);
+          // Toon geen error bij initialisatie om UI niet te blokkeren
         }
-        if (colName === 'planning') setLoading(false);
-      }, (err) => {
-        addLog(`Sync fout (${colName}): ${err.code}`);
-      });
+      );
     };
 
     const unsubs = [
-      setupSync('planning', setEvents),
-      setupSync('coaches', setCoaches),
-      setupSync('locaties', setLocaties),
-      setupSync('groepen', setGroepen),
-      setupSync('tarieven', setTarieven)
+      syncCollection('planning', setEvents),
+      syncCollection('coaches', setCoaches),
+      syncCollection('locaties', setLocaties),
+      syncCollection('groepen', setGroepen),
+      syncCollection('tarieven', setTarieven)
     ];
 
     return () => unsubs.forEach(fn => fn());
-  }, [user, db, appId]);
+  }, [user]);
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
@@ -192,23 +137,34 @@ export default function App() {
       setIsAdmin(true);
       setIsModalOpen(false);
       setAdminPassword("");
+      setLoginError("");
     } else {
       setLoginError("Foutief wachtwoord.");
     }
   };
 
   const saveData = async (col, data, id = null) => {
-    if (!isAdmin || !user || !db) return;
+    if (!isAdmin || !user) {
+      setErrorMessage("U heeft geen toestemming om gegevens te wijzigen.");
+      return;
+    }
+    
     setIsSaving(true);
+    setErrorMessage("");
+    
     try {
+      // RULE 1: Exact pad voor documenten
       if (id) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id), data);
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
+        await updateDoc(docRef, data);
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', col), data);
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', col);
+        await addDoc(colRef, data);
       }
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (e) {
+      console.error("Save error:", e);
       setErrorMessage(`Opslaan mislukt: ${e.message}`);
     } finally {
       setIsSaving(false);
@@ -216,9 +172,10 @@ export default function App() {
   };
 
   const deleteItem = async (col, id) => {
-    if (!isAdmin || !user || !db || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
+    if (!isAdmin || !user || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
+      await deleteDoc(docRef);
     } catch (e) {
       setErrorMessage(`Verwijderen mislukt: ${e.message}`);
     }
@@ -228,24 +185,11 @@ export default function App() {
   const getLocatieName = (id) => locaties.find(x => x.id === id)?.benaming || 'Onbekend';
   const getGroepName = (id) => groepen.find(x => x.id === id)?.benaming || 'Algemeen';
 
-  if (errorMessage) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6">
-      <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-md w-full border border-red-100 text-center">
-        <AlertCircle className="text-red-500 mx-auto mb-4" size={48} />
-        <h2 className="text-xl font-black mb-2">Verbindingsfout</h2>
-        <p className="text-slate-500 text-sm mb-6">{errorMessage}</p>
-        <button onClick={() => window.location.reload()} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">
-          <RefreshCw size={18} /> Herladen
-        </button>
-      </div>
-    </div>
-  );
-
-  if (loading) return (
+  if (loading && !errorMessage) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-600 text-white">
       <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-6"></div>
       <h2 className="text-xl font-black mb-2">Antwerp Ropes</h2>
-      <p className="text-xs opacity-60 font-mono">{debugLogs[debugLogs.length - 1]}</p>
+      <p className="text-sm opacity-60">Laden...</p>
     </div>
   );
 
@@ -273,6 +217,16 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {errorMessage && (
+        <div className="max-w-5xl mx-auto mt-4 px-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
+            <AlertCircle size={18} />
+            <span className="text-sm font-bold">{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")} className="ml-auto text-red-400">×</button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto p-4 md:p-6">
         {view === 'admin' ? (
@@ -440,10 +394,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Modals voor beheer */}
+      {/* Modals */}
       {isModalOpen && isModalOpen !== 'login' && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8 animate-in zoom-in duration-200">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8">
             <h2 className="text-2xl font-black mb-6">{editingItem ? 'Bewerken' : 'Nieuw Toevoegen'}</h2>
             
             <form onSubmit={(e) => {
@@ -459,15 +413,15 @@ export default function App() {
                   <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                   <input type="text" placeholder="Uren (bv. 18:30 - 20:30)" required value={eventForm.uren} onChange={(e) => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                   <select required value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Locatie</option>
+                    <option value="">Selecteer Locatie</option>
                     {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
                   </select>
                   <select required value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Coach</option>
+                    <option value="">Selecteer Coach</option>
                     {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
                   </select>
                   <select required value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                    <option value="">Groep</option>
+                    <option value="">Selecteer Groep</option>
                     {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
                   </select>
                   <textarea placeholder="Opmerking" value={eventForm.opmerking} onChange={(e) => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100 h-20" />
@@ -478,14 +432,14 @@ export default function App() {
                 <div className="space-y-3">
                   <input type="text" placeholder="Voornaam" required value={coachForm.voornaam} onChange={(e) => setCoachForm({...coachForm, voornaam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                   <input type="text" placeholder="Naam" required value={coachForm.naam} onChange={(e) => setCoachForm({...coachForm, naam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="email" placeholder="E-mail" value={coachForm.email} onChange={(e) => setCoachForm({...coachForm, email: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                  <input type="email" placeholder="E-mail" value={coachForm.email || ''} onChange={(e) => setCoachForm({...coachForm, email: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                 </div>
               )}
 
               {isModalOpen === 'locaties' && (
                 <div className="space-y-3">
                   <input type="text" placeholder="Benaming" required value={locatieForm.benaming} onChange={(e) => setLocatieForm({...locatieForm, benaming: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                  <input type="text" placeholder="Adres" value={locatieForm.adres} onChange={(e) => setLocatieForm({...locatieForm, adres: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                  <input type="text" placeholder="Adres" value={locatieForm.adres || ''} onChange={(e) => setLocatieForm({...locatieForm, adres: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
                 </div>
               )}
 
