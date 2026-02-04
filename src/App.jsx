@@ -31,7 +31,8 @@ import {
   Home,
   Euro,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 
 const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
@@ -50,7 +51,8 @@ export default function App() {
   const [tarieven, setTarieven] = useState({});
   
   const [loading, setLoading] = useState(true);
-  const [configError, setConfigError] = useState(false);
+  const [debugLogs, setDebugLogs] = useState(["Systeem start op..."]);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const [view, setView] = useState('list'); 
   const [adminSubView, setAdminSubView] = useState('coaches'); 
@@ -67,29 +69,32 @@ export default function App() {
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  // 1. Ultre-robuuste Firebase initialisatie
+  const addLog = (msg) => setDebugLogs(prev => [...prev.slice(-4), msg]);
+
+  // 1. Firebase initialisatie met verbeterde foutopsporing
   useEffect(() => {
     let checkInterval;
     let attempts = 0;
-    const maxAttempts = 50; // We proberen het 5 seconden lang (elke 100ms)
+    const maxAttempts = 60; 
 
     const init = async () => {
+      attempts++;
       const configStr = window.__firebase_config;
       const id = window.__app_id;
       const token = window.__initial_auth_token;
 
       if (!configStr) {
-        attempts++;
+        if (attempts % 10 === 0) addLog(`Wachten op config (poging ${attempts}/60)...`);
         if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          setConfigError(true);
+          setErrorMessage("Configuratie niet gevonden na 6 seconden. Controleer de omgevingsvariabelen.");
           setLoading(false);
         }
-        return; // Blijf wachten
+        return;
       }
 
-      // We hebben de config! Stop de interval
       clearInterval(checkInterval);
+      addLog("Configuratie ontvangen. Bezig met initialiseren...");
 
       try {
         const config = JSON.parse(configStr);
@@ -101,22 +106,29 @@ export default function App() {
         setAuth(firebaseAuth);
         if (id) setAppId(id);
 
-        // Auth afhandeling
+        addLog("Authenticatie starten...");
         if (token) {
           await signInWithCustomToken(firebaseAuth, token);
+          addLog("Ingelogd met systeem-token.");
         } else {
           await signInAnonymously(firebaseAuth);
+          addLog("Anoniem ingelogd.");
         }
 
         const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
           setUser(u);
-          if (!u) setLoading(false);
+          if (u) {
+            addLog(`Verbonden als: ${u.uid}`);
+          } else {
+            addLog("Geen actieve gebruiker.");
+            setLoading(false);
+          }
         });
 
         return unsubscribe;
       } catch (err) {
         console.error("Firebase init fout:", err);
-        setConfigError(true);
+        setErrorMessage(`Initialisatiefout: ${err.message}`);
         setLoading(false);
       }
     };
@@ -125,7 +137,7 @@ export default function App() {
     return () => clearInterval(checkInterval);
   }, []);
 
-  // 2. Data synchronisatie
+  // 2. Data synchronisatie met fout-feedback
   useEffect(() => {
     if (!user || !db) return;
 
@@ -135,11 +147,16 @@ export default function App() {
         (snapshot) => {
           const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
           setter(data);
-          if (collectionName === 'planning') setLoading(false);
+          if (collectionName === 'planning') {
+            addLog("Planning succesvol geladen.");
+            setLoading(false);
+          }
         },
         (err) => {
-          console.error(`Fout bij laden van ${collectionName}:`, err);
-          // Als de fout 403 is, kan het zijn dat de user nog niet volledig geauth is
+          addLog(`Fout bij ${collectionName}: ${err.code}`);
+          if (err.code === 'permission-denied') {
+            setErrorMessage("Toegang geweigerd door de database. Controleer de Firestore regels.");
+          }
         }
       );
     };
@@ -183,7 +200,7 @@ export default function App() {
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (e) { 
-      console.error("Fout bij opslaan:", e);
+      setErrorMessage(`Opslaan mislukt: ${e.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -193,7 +210,7 @@ export default function App() {
     if (!isAdmin || !user || !db || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
-    } catch (e) { console.error("Fout bij verwijderen:", e); }
+    } catch (e) { setErrorMessage(`Verwijderen mislukt: ${e.message}`); }
   };
 
   const getCoachName = (id) => {
@@ -203,23 +220,35 @@ export default function App() {
   const getLocatieName = (id) => locaties.find(x => x.id === id)?.benaming || 'Geen locatie';
   const getGroepName = (id) => groepen.find(x => x.id === id)?.benaming || 'Geen groep';
 
-  if (configError) return (
+  if (errorMessage) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
-      <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm border border-red-100">
+      <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-md border border-red-100">
         <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
         <h2 className="text-xl font-black mb-2 text-slate-900">Verbindingsfout</h2>
-        <p className="text-slate-500 text-sm font-medium">We konden geen verbinding maken met de database. Herlaad de pagina of probeer het later opnieuw.</p>
-        <button onClick={() => window.location.reload()} className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Nu herladen</button>
+        <div className="bg-red-50 p-4 rounded-xl mb-6 text-left border border-red-100">
+          <p className="text-red-700 text-xs font-mono break-words">{errorMessage}</p>
+        </div>
+        <div className="text-slate-400 text-[10px] mb-6 text-left font-mono">
+            <strong>Debug Logs:</strong>
+            {debugLogs.map((log, i) => <div key={i}>- {log}</div>)}
+        </div>
+        <button onClick={() => window.location.reload()} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Nu herladen</button>
       </div>
     </div>
   );
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-      <div className="relative">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-b-indigo-600"></div>
+      <div className="relative mb-6">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-100 border-b-indigo-600"></div>
+        <Activity className="absolute inset-0 m-auto text-indigo-600 animate-pulse" size={24} />
       </div>
-      <p className="mt-4 text-slate-500 font-bold text-sm tracking-wide animate-pulse">Laden...</p>
+      <p className="text-slate-500 font-bold text-sm tracking-wide">Data ophalen...</p>
+      <div className="mt-8 max-w-xs w-full px-4">
+        {debugLogs.map((log, i) => (
+          <p key={i} className="text-[10px] font-mono text-slate-400 border-l border-slate-200 pl-3 mb-1">{log}</p>
+        ))}
+      </div>
     </div>
   );
 
