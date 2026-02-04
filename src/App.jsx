@@ -35,17 +35,14 @@ import {
   Info
 } from 'lucide-react';
 
-// Configuratie en Initialisatie BUITEN de component (Systeemvereiste)
-const firebaseConfig = JSON.parse(__firebase_config);
-const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
-
 const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
 
 export default function App() {
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
   const [user, setUser] = useState(null);
+  const [appId, setAppId] = useState('sportclub-admin-v1');
+  
   const [isAdmin, setIsAdmin] = useState(false);
   const [events, setEvents] = useState([]);
   const [coaches, setCoaches] = useState([]);
@@ -71,34 +68,56 @@ export default function App() {
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  // 1. Authenticatie Effect
+  // Veilige initialisatie van Firebase binnen useEffect
   useEffect(() => {
-    const initAuth = async () => {
+    const initFirebase = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
+        // Check of de variabelen bestaan (voorkomt ReferenceError)
+        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const envAppId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
+
+        if (!configStr) {
+          // Als het nog niet geladen is, wacht even en probeer opnieuw
+          setTimeout(initFirebase, 500);
+          return;
         }
+
+        const config = JSON.parse(configStr);
+        const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApps()[0];
+        const firebaseAuth = getAuth(firebaseApp);
+        const firebaseDb = getFirestore(firebaseApp);
+
+        setDb(firebaseDb);
+        setAuth(firebaseAuth);
+        setAppId(envAppId);
+
+        // Auth proces
+        if (token) {
+          await signInWithCustomToken(firebaseAuth, token);
+        } else {
+          await signInAnonymously(firebaseAuth);
+        }
+
+        onAuthStateChanged(firebaseAuth, (u) => {
+          setUser(u);
+        });
+
       } catch (err) {
-        console.error("Auth error:", err);
-        setErrorMessage("Authenticatie mislukt.");
+        console.error("Firebase init error:", err);
+        setErrorMessage("Database configuratie kon niet worden geladen.");
+        setLoading(false);
       }
     };
-    
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
+
+    initFirebase();
   }, []);
 
-  // 2. Data Sync Effect (Start pas als User er is)
+  // Data Sync Effect (Start pas als User, DB en AppId er zijn)
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db || !appId) return;
 
     const syncCollection = (colName, setter) => {
-      // RULE 1: Gebruik het exacte pad /artifacts/{appId}/public/data/{collectionName}
       const colRef = collection(db, 'artifacts', appId, 'public', 'data', colName);
       
       return onSnapshot(colRef, 
@@ -115,7 +134,6 @@ export default function App() {
         },
         (err) => {
           console.error(`Sync error ${colName}:`, err);
-          // Toon geen error bij initialisatie om UI niet te blokkeren
         }
       );
     };
@@ -129,7 +147,7 @@ export default function App() {
     ];
 
     return () => unsubs.forEach(fn => fn());
-  }, [user]);
+  }, [user, db, appId]);
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
@@ -144,8 +162,8 @@ export default function App() {
   };
 
   const saveData = async (col, data, id = null) => {
-    if (!isAdmin || !user) {
-      setErrorMessage("U heeft geen toestemming om gegevens te wijzigen.");
+    if (!isAdmin || !user || !db) {
+      setErrorMessage("U heeft geen toestemming of database is niet verbonden.");
       return;
     }
     
@@ -153,7 +171,6 @@ export default function App() {
     setErrorMessage("");
     
     try {
-      // RULE 1: Exact pad voor documenten
       if (id) {
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
         await updateDoc(docRef, data);
@@ -164,7 +181,6 @@ export default function App() {
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (e) {
-      console.error("Save error:", e);
       setErrorMessage(`Opslaan mislukt: ${e.message}`);
     } finally {
       setIsSaving(false);
@@ -172,7 +188,7 @@ export default function App() {
   };
 
   const deleteItem = async (col, id) => {
-    if (!isAdmin || !user || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
+    if (!isAdmin || !user || !db || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
     try {
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
       await deleteDoc(docRef);
@@ -397,7 +413,7 @@ export default function App() {
       {/* Modals */}
       {isModalOpen && isModalOpen !== 'login' && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8 animate-in zoom-in duration-200">
             <h2 className="text-2xl font-black mb-6">{editingItem ? 'Bewerken' : 'Nieuw Toevoegen'}</h2>
             
             <form onSubmit={(e) => {
