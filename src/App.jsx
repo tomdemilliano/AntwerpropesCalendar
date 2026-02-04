@@ -75,7 +75,6 @@ export default function App() {
       if (typeof window !== 'undefined' && window.__firebase_config) {
         return typeof window.__firebase_config === 'string' ? JSON.parse(window.__firebase_config) : window.__firebase_config;
       }
-      // Fallbacks voor verschillende omgevingen
       if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_FIREBASE_CONFIG) {
         return JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG);
       }
@@ -92,7 +91,6 @@ export default function App() {
         const config = getFirebaseConfig();
         
         if (!config) {
-          // Probeer het over 500ms nog eens als de variabelen nog niet zijn geïnjecteerd
           setTimeout(startFirebase, 500);
           return;
         }
@@ -101,14 +99,13 @@ export default function App() {
         const firebaseAuth = getAuth(firebaseApp);
         const firebaseDb = getFirestore(firebaseApp);
         
-        // App ID ophalen
+        // App ID ophalen (Cruciaal voor Firestore paden)
         const currentAppId = typeof __app_id !== 'undefined' ? __app_id : (typeof window !== 'undefined' && window.__app_id ? window.__app_id : 'sportclub-admin-v1');
 
         setDb(firebaseDb);
         setAuth(firebaseAuth);
         setAppId(currentAppId);
 
-        // Authenticatie met Token of Anoniem
         const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : (typeof window !== 'undefined' ? window.__initial_auth_token : null);
 
         if (token) {
@@ -132,12 +129,11 @@ export default function App() {
     startFirebase();
   }, [getFirebaseConfig]);
 
-  // 3. Data synchronisatie (Public Data Pattern)
+  // 3. Data synchronisatie
   useEffect(() => {
     if (!user || !db || !appId) return;
 
     const setupSync = (collectionName, setter) => {
-      // Gebruik het verplichte pad: /artifacts/{appId}/public/data/{collection}
       const path = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
       
       return onSnapshot(path, (snapshot) => {
@@ -181,29 +177,43 @@ export default function App() {
     }
   };
 
+  // Verbeterde Save handler met expliciete paden
   const handleSave = async (col, data, id = null) => {
-    if (!isAdmin || !db) return;
+    if (!isAdmin || !db || !user) {
+      setErrorMessage("Geen machtiging of database niet verbonden.");
+      return;
+    }
+    
     setIsSaving(true);
+    setErrorMessage("");
+    
     try {
+      // Gebruik exact het pad dat de regels verwachten
       if (id) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id), data);
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
+        await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', col), data);
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', col);
+        await addDoc(colRef, { ...data, createdAt: new Date().toISOString() });
       }
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (err) {
-      setErrorMessage("Opslaan mislukt. Controleer rechten.");
+      console.error("Firestore Save Error:", err);
+      setErrorMessage(`Opslaan mislukt: ${err.message || 'Controleer rechten'}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (col, id) => {
-    if (!isAdmin || !db || !window.confirm("Dit item verwijderen?")) return;
+    if (!isAdmin || !db || !user || !window.confirm("Dit item verwijderen?")) return;
+    
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', col, id);
+      await deleteDoc(docRef);
     } catch (err) {
+      console.error("Firestore Delete Error:", err);
       setErrorMessage("Verwijderen mislukt.");
     }
   };
