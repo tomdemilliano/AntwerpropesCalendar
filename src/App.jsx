@@ -60,33 +60,36 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Form States
+  // Formulieren
   const [eventForm, setEventForm] = useState({ datum: '', uren: '', locatieId: '', groepId: '', coachId: '', opmerking: '' });
   const [coachForm, setCoachForm] = useState({ voornaam: '', naam: '', email: '' });
   const [locatieForm, setLocatieForm] = useState({ benaming: '', adres: '', emailContact: '', boekingUrl: '' });
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  // 1. Robuuste Firebase initialisatie met herhaalpogingen
+  // 1. Ultre-robuuste Firebase initialisatie
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 10;
-    
-    const tryInit = async () => {
+    let checkInterval;
+    let attempts = 0;
+    const maxAttempts = 50; // We proberen het 5 seconden lang (elke 100ms)
+
+    const init = async () => {
       const configStr = window.__firebase_config;
       const id = window.__app_id;
       const token = window.__initial_auth_token;
 
       if (!configStr) {
-        if (retryCount < maxRetries) {
-          retryCount++;
-          setTimeout(tryInit, 500);
-          return;
+        attempts++;
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          setConfigError(true);
+          setLoading(false);
         }
-        setConfigError(true);
-        setLoading(false);
-        return;
+        return; // Blijf wachten
       }
+
+      // We hebben de config! Stop de interval
+      clearInterval(checkInterval);
 
       try {
         const config = JSON.parse(configStr);
@@ -98,6 +101,7 @@ export default function App() {
         setAuth(firebaseAuth);
         if (id) setAppId(id);
 
+        // Auth afhandeling
         if (token) {
           await signInWithCustomToken(firebaseAuth, token);
         } else {
@@ -106,25 +110,22 @@ export default function App() {
 
         const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
           setUser(u);
-          // Alleen stoppen met laden als we data gaan syncen of als er geen user is
           if (!u) setLoading(false);
         });
 
         return unsubscribe;
       } catch (err) {
-        console.error("Firebase init error:", err);
+        console.error("Firebase init fout:", err);
         setConfigError(true);
         setLoading(false);
       }
     };
 
-    const unsubAuth = tryInit();
-    return () => {
-      if (typeof unsubAuth === 'function') unsubAuth();
-    };
+    checkInterval = setInterval(init, 100);
+    return () => clearInterval(checkInterval);
   }, []);
 
-  // 2. Sync Data Effect
+  // 2. Data synchronisatie
   useEffect(() => {
     if (!user || !db) return;
 
@@ -138,6 +139,7 @@ export default function App() {
         },
         (err) => {
           console.error(`Fout bij laden van ${collectionName}:`, err);
+          // Als de fout 403 is, kan het zijn dat de user nog niet volledig geauth is
         }
       );
     };
@@ -194,7 +196,10 @@ export default function App() {
     } catch (e) { console.error("Fout bij verwijderen:", e); }
   };
 
-  const getCoachName = (id) => coaches.find(x => x.id === id) ? `${coaches.find(x => x.id === id).voornaam} ${coaches.find(x => x.id === id).naam}` : 'Geen coach';
+  const getCoachName = (id) => {
+    const coach = coaches.find(x => x.id === id);
+    return coach ? `${coach.voornaam} ${coach.naam}` : 'Geen coach';
+  };
   const getLocatieName = (id) => locaties.find(x => x.id === id)?.benaming || 'Geen locatie';
   const getGroepName = (id) => groepen.find(x => x.id === id)?.benaming || 'Geen groep';
 
@@ -202,8 +207,8 @@ export default function App() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
       <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm border border-red-100">
         <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
-        <h2 className="text-xl font-black mb-2 text-slate-900">Systeemfout</h2>
-        <p className="text-slate-500 text-sm font-medium">De database-instellingen konden niet worden geladen. Probeer de pagina te verversen.</p>
+        <h2 className="text-xl font-black mb-2 text-slate-900">Verbindingsfout</h2>
+        <p className="text-slate-500 text-sm font-medium">We konden geen verbinding maken met de database. Herlaad de pagina of probeer het later opnieuw.</p>
         <button onClick={() => window.location.reload()} className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Nu herladen</button>
       </div>
     </div>
@@ -214,7 +219,7 @@ export default function App() {
       <div className="relative">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-b-indigo-600"></div>
       </div>
-      <p className="mt-4 text-slate-500 font-bold text-sm tracking-wide animate-pulse">Planning ophalen...</p>
+      <p className="mt-4 text-slate-500 font-bold text-sm tracking-wide animate-pulse">Laden...</p>
     </div>
   );
 
@@ -277,7 +282,6 @@ export default function App() {
                             if(adminSubView === 'coaches') setCoachForm({ voornaam: '', naam: '', email: '' });
                             if(adminSubView === 'locaties') setLocatieForm({ benaming: '', adres: '', emailContact: '', boekingUrl: '' });
                             if(adminSubView === 'groepen') setGroepForm({ benaming: '' });
-                            if(adminSubView === 'financien') setTariefForm({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
                             setIsModalOpen(adminSubView); 
                         }}
                         className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100 transition"
@@ -364,26 +368,42 @@ export default function App() {
               </form>
             )}
 
-            {isModalOpen === 'planning' && (
-              <form onSubmit={(e) => { e.preventDefault(); saveData('planning', eventForm, editingItem?.id); }} className="space-y-4">
-                <h2 className="text-2xl font-black mb-4">{editingItem ? 'Bewerken' : 'Nieuwe Training'}</h2>
-                <div className="space-y-3">
-                    <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                    <input type="text" placeholder="Uren (bv. 18:30 - 20:30)" value={eventForm.uren} onChange={(e) => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
-                    <select required value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                        <option value="">Selecteer Locatie</option>
-                        {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
-                    </select>
-                    <select required value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                        <option value="">Selecteer Coach</option>
-                        {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
-                    </select>
-                    <select required value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
-                        <option value="">Selecteer Groep</option>
-                        {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
-                    </select>
-                    <textarea placeholder="Extra opmerking..." value={eventForm.opmerking} onChange={(e) => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold h-20 border border-slate-100" />
-                </div>
+            {(isModalOpen === 'planning' || isModalOpen === 'coaches') && (
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (isModalOpen === 'planning') saveData('planning', eventForm, editingItem?.id);
+                if (isModalOpen === 'coaches') saveData('coaches', coachForm, editingItem?.id);
+              }} className="space-y-4">
+                <h2 className="text-2xl font-black mb-4">{editingItem ? 'Bewerken' : 'Nieuw Item'}</h2>
+                
+                {isModalOpen === 'planning' && (
+                    <div className="space-y-3">
+                        <input type="date" required value={eventForm.datum} onChange={(e) => setEventForm({...eventForm, datum: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                        <input type="text" placeholder="Uren (bv. 18:30 - 20:30)" value={eventForm.uren} onChange={(e) => setEventForm({...eventForm, uren: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                        <select required value={eventForm.locatieId} onChange={(e) => setEventForm({...eventForm, locatieId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
+                            <option value="">Selecteer Locatie</option>
+                            {locaties.map(l => <option key={l.id} value={l.id}>{l.benaming}</option>)}
+                        </select>
+                        <select required value={eventForm.coachId} onChange={(e) => setEventForm({...eventForm, coachId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
+                            <option value="">Selecteer Coach</option>
+                            {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.naam}</option>)}
+                        </select>
+                        <select required value={eventForm.groepId} onChange={(e) => setEventForm({...eventForm, groepId: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100">
+                            <option value="">Selecteer Groep</option>
+                            {groepen.map(g => <option key={g.id} value={g.id}>{g.benaming}</option>)}
+                        </select>
+                        <textarea placeholder="Extra opmerking..." value={eventForm.opmerking} onChange={(e) => setEventForm({...eventForm, opmerking: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold h-20 border border-slate-100" />
+                    </div>
+                )}
+
+                {isModalOpen === 'coaches' && (
+                    <div className="space-y-3">
+                        <input type="text" placeholder="Voornaam" required value={coachForm.voornaam} onChange={(e) => setCoachForm({...coachForm, voornaam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                        <input type="text" placeholder="Naam" required value={coachForm.naam} onChange={(e) => setCoachForm({...coachForm, naam: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                        <input type="email" placeholder="E-mail" value={coachForm.email} onChange={(e) => setCoachForm({...coachForm, email: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold border border-slate-100" />
+                    </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-slate-400">Annuleer</button>
                   <button type="submit" disabled={isSaving} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black">
