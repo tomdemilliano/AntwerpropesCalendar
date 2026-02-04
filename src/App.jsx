@@ -67,24 +67,28 @@ export default function App() {
   const [groepForm, setGroepForm] = useState({ benaming: '' });
   const [tariefForm, setTariefForm] = useState({ seizoen: '2024-2025', coachUur: 0, locatieUur: 0 });
 
-  // 1. Initialiseer Firebase pas NADAT de component is geladen
+  // 1. Robuuste Firebase initialisatie met herhaalpogingen
   useEffect(() => {
-    const initFirebase = async () => {
-      try {
-        // Controleer of de globals beschikbaar zijn in de window scope
-        const configStr = window.__firebase_config;
-        const id = window.__app_id;
-        const token = window.__initial_auth_token;
+    let retryCount = 0;
+    const maxRetries = 10;
+    
+    const tryInit = async () => {
+      const configStr = window.__firebase_config;
+      const id = window.__app_id;
+      const token = window.__initial_auth_token;
 
-        if (!configStr) {
-          // Als het er nog niet is, probeer het na 500ms nog een keer (race condition fix)
-          setTimeout(() => {
-            if (!window.__firebase_config) setConfigError(true);
-            else initFirebase();
-          }, 500);
+      if (!configStr) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(tryInit, 500);
           return;
         }
+        setConfigError(true);
+        setLoading(false);
+        return;
+      }
 
+      try {
         const config = JSON.parse(configStr);
         const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApps()[0];
         const firebaseAuth = getAuth(firebaseApp);
@@ -94,7 +98,6 @@ export default function App() {
         setAuth(firebaseAuth);
         if (id) setAppId(id);
 
-        // Auth handling
         if (token) {
           await signInWithCustomToken(firebaseAuth, token);
         } else {
@@ -103,20 +106,25 @@ export default function App() {
 
         const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
           setUser(u);
+          // Alleen stoppen met laden als we data gaan syncen of als er geen user is
           if (!u) setLoading(false);
         });
 
-        return () => unsubscribe();
+        return unsubscribe;
       } catch (err) {
         console.error("Firebase init error:", err);
         setConfigError(true);
+        setLoading(false);
       }
     };
 
-    initFirebase();
+    const unsubAuth = tryInit();
+    return () => {
+      if (typeof unsubAuth === 'function') unsubAuth();
+    };
   }, []);
 
-  // 2. Sync Data Effect (alleen als user en db klaar zijn)
+  // 2. Sync Data Effect
   useEffect(() => {
     if (!user || !db) return;
 
@@ -195,16 +203,18 @@ export default function App() {
       <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm border border-red-100">
         <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
         <h2 className="text-xl font-black mb-2 text-slate-900">Systeemfout</h2>
-        <p className="text-slate-500 text-sm font-medium">De databaseverbinding kon niet worden opgezet. Herlaad de pagina om het opnieuw te proberen.</p>
-        <button onClick={() => window.location.reload()} className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Herladen</button>
+        <p className="text-slate-500 text-sm font-medium">De database-instellingen konden niet worden geladen. Probeer de pagina te verversen.</p>
+        <button onClick={() => window.location.reload()} className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Nu herladen</button>
       </div>
     </div>
   );
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
-      <p className="text-slate-400 font-bold text-sm">Planning laden...</p>
+      <div className="relative">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-b-indigo-600"></div>
+      </div>
+      <p className="mt-4 text-slate-500 font-bold text-sm tracking-wide animate-pulse">Planning ophalen...</p>
     </div>
   );
 
@@ -251,7 +261,7 @@ export default function App() {
                 <button 
                   key={tab.id}
                   onClick={() => setAdminSubView(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition ${adminSubView === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition shrink-0 ${adminSubView === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}
                 >
                   <tab.icon size={16} /> {tab.label}
                 </button>
@@ -289,7 +299,6 @@ export default function App() {
                         ))}
                     </div>
                 )}
-                {/* Overige admin views (locaties, groepen, financien) volgen hetzelfde pattern */}
             </div>
           </div>
         ) : (
@@ -340,7 +349,6 @@ export default function App() {
         </button>
       )}
 
-      {/* Modals voor Login, Planning, etc. */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden p-8 animate-in zoom-in duration-200">
@@ -384,7 +392,6 @@ export default function App() {
                 </div>
               </form>
             )}
-            {/* Overige formulieren voor coaches, locaties etc volgen hetzelfde pattern */}
           </div>
         </div>
       )}
