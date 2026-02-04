@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -33,12 +33,25 @@ import {
   Settings
 } from 'lucide-react';
 
-// --- FIREBASE INITIALISATIE ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- VEILIGE INITIALISATIE VAN FIREBASE CONFIG ---
+const getFirebaseConfig = () => {
+  try {
+    if (typeof __firebase_config !== 'undefined') {
+      return JSON.parse(__firebase_config);
+    }
+  } catch (e) {
+    console.error("Config parse error:", e);
+  }
+  return null;
+};
+
+const firebaseConfig = getFirebaseConfig();
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'sportclub-admin-v1';
+
+// Initialiseer alleen als config bestaat
+const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
 
 const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
 
@@ -51,6 +64,7 @@ export default function App() {
   const [groepen, setGroepen] = useState([]);
   const [tarieven, setTarieven] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   const [view, setView] = useState('list'); 
   const [adminSubView, setAdminSubView] = useState('coaches'); 
@@ -69,6 +83,12 @@ export default function App() {
 
   // Auth Effect
   useEffect(() => {
+    if (!auth) {
+      setError("Firebase configuratie niet gevonden.");
+      setLoading(false);
+      return;
+    }
+
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -76,18 +96,21 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (error) {
-        console.error("Auth error:", error);
+      } catch (err) {
+        console.error("Auth error:", err);
       }
     };
+
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
     return () => unsubscribe();
   }, []);
 
   // Sync Data Effect
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
 
     const syncCollection = (collectionName, setter) => {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', collectionName));
@@ -97,8 +120,8 @@ export default function App() {
           setter(data);
           if (collectionName === 'planning') setLoading(false);
         },
-        (error) => {
-          console.error(`Error fetching ${collectionName}:`, error);
+        (err) => {
+          console.error(`Error fetching ${collectionName}:`, err);
         }
       );
     };
@@ -131,7 +154,7 @@ export default function App() {
   };
 
   const saveData = async (col, data, id = null) => {
-    if (!isAdmin || !user) return;
+    if (!isAdmin || !user || !db) return;
     setIsSaving(true);
     try {
       if (id) {
@@ -149,7 +172,7 @@ export default function App() {
   };
 
   const deleteItem = async (col, id) => {
-    if (!isAdmin || !user || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
+    if (!isAdmin || !user || !db || !window.confirm("Weet je zeker dat je dit wilt verwijderen?")) return;
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
     } catch (e) { console.error("Fout bij verwijderen:", e); }
@@ -171,7 +194,18 @@ export default function App() {
     return g ? g.benaming : 'Geen groep';
   };
 
-  if (loading && !user) return (
+  if (error) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
+      <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm border border-red-100">
+        <Lock className="mx-auto text-red-500 mb-4" size={48} />
+        <h2 className="text-xl font-black mb-2 text-slate-900">Configuratie Fout</h2>
+        <p className="text-slate-500 text-sm font-medium">{error}</p>
+        <button onClick={() => window.location.reload()} className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Opnieuw proberen</button>
+      </div>
+    </div>
+  );
+
+  if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
