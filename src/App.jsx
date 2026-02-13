@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase';
 import { 
-  collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc 
+  collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc, where, getDocs, writeBatch
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck
 } from 'lucide-react';
 
 const App = () => {
@@ -14,9 +14,14 @@ const App = () => {
   const [adminSection, setAdminSection] = useState('groepen');
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // State voor Bulk Scheduling
+  const [selectedSeasonId, setSelectedSeasonId] = useState('');
+  const [selectedVasteIds, setSelectedVasteIds] = useState([]);
+
   // State voor de Tag Input (Coaches)
   const [coachSearch, setCoachSearch] = useState('');
   const [selectedCoachIds, setSelectedCoachIds] = useState([]);
@@ -60,7 +65,6 @@ const App = () => {
     };
   }, []);
 
-  // Dropdown sluiten bij klik buitenveld
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -126,12 +130,13 @@ const App = () => {
       data: vasteTrainingen,
       fields: [
         { name: 'groepId', label: 'Groep', type: 'select', options: groepen.map(g => ({ value: g.id, label: g.naam })) },
-        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'] },
+        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
         { isRow: true, fields: [
           { name: 'startUur', label: 'Start', type: 'time' },
           { name: 'eindUur', label: 'Einde', type: 'time' }
         ]},
-        { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' }
+        { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
+        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) }
       ]
     }
   };
@@ -157,6 +162,62 @@ const App = () => {
     setSelectedCoachIds([]);
   };
 
+  // Logica voor bulk inplannen
+  const handleBulkSchedule = async (e) => {
+    e.preventDefault();
+    if (!selectedSeasonId || selectedVasteIds.length === 0) return;
+
+    const seizoen = seizoenen.find(s => s.id === selectedSeasonId);
+    const start = new Date(seizoen.startDatum);
+    const eind = new Date(seizoen.eindDatum);
+    const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
+
+    const batch = writeBatch(db);
+
+    for (const vasteId of selectedVasteIds) {
+      const vaste = vasteTrainingen.find(v => v.id === vasteId);
+      const targetDag = dagIndexen[vaste.dag];
+
+      // 1. Verwijder bestaande trainingen voor deze groep en dag in deze periode
+      const q = query(
+        collection(db, "planning"), 
+        where("groepId", "==", vaste.groepId),
+        where("datum", ">=", seizoen.startDatum),
+        where("datum", "<=", seizoen.eindDatum)
+      );
+      const existingDocs = await getDocs(q);
+      existingDocs.forEach(docSnap => {
+        const d = new Date(docSnap.data().datum);
+        if (d.getDay() === targetDag) {
+          batch.delete(docSnap.ref);
+        }
+      });
+
+      // 2. Genereer nieuwe datums
+      let loopDate = new Date(start);
+      while (loopDate <= eind) {
+        if (loopDate.getDay() === targetDag) {
+          const formattedDate = loopDate.toISOString().split('T')[0];
+          const newDocRef = doc(collection(db, "planning"));
+          batch.set(newDocRef, {
+            datum: formattedDate,
+            groepId: vaste.groepId,
+            locatieId: vaste.locatieId,
+            uren: `${vaste.startUur}-${vaste.eindUur}`,
+            coachId: vaste.coachIds?.[0] || '', // Neemt eerste coach als hoofdcoach voor kalender-view compatibiliteit
+            coachIds: vaste.coachIds || []
+          });
+        }
+        loopDate.setDate(loopDate.getDate() + 1);
+      }
+    }
+
+    await batch.commit();
+    setShowBulkScheduleModal(false);
+    setSelectedVasteIds([]);
+    alert("Trainingsmomenten succesvol ingepland!");
+  };
+
   const openEditModal = (item) => {
     setEditingItem(item);
     if (adminSection === 'vasteTrainingen') {
@@ -175,6 +236,7 @@ const App = () => {
   const renderCellContent = (item, field) => {
     const value = item[field.name];
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
+    if (field.name === 'locatieId') return locaties.find(l => l.id === value)?.naam || 'Onbekend';
     if (field.name === 'coachIds' && Array.isArray(value)) {
       return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
     }
@@ -186,7 +248,6 @@ const App = () => {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 
-  // Helper component voor individuele velden in de modal
   const RenderInputField = (field) => {
     if (field.type === 'tag-input') {
       return (
@@ -308,9 +369,16 @@ const App = () => {
             <div className="flex-1 overflow-y-auto p-8 bg-white">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
-                <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
-                  <Plus size={16}/> Toevoegen
-                </button>
+                <div className="flex gap-2">
+                  {adminSection === 'vasteTrainingen' && (
+                    <button onClick={() => setShowBulkScheduleModal(true)} className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-200 transition text-sm font-bold">
+                      <CalendarCheck size={16}/> Trainingsmomenten inplannen
+                    </button>
+                  )}
+                  <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
+                    <Plus size={16}/> Toevoegen
+                  </button>
+                </div>
               </div>
 
               <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
@@ -346,6 +414,56 @@ const App = () => {
           </div>
         )}
       </main>
+
+      {/* MODAL: BULK INPLANNEN */}
+      {showBulkScheduleModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+              <h2 className="text-lg font-black text-slate-800">Trainingsmomenten inplannen</h2>
+              <button onClick={() => setShowBulkScheduleModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+            </div>
+            <form onSubmit={handleBulkSchedule} className="p-6 space-y-6">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Seizoen</label>
+                <select required className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none" onChange={e => setSelectedSeasonId(e.target.value)}>
+                  <option value="">Selecteer seizoen...</option>
+                  {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam} ({s.startDatum} tot {s.eindDatum})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Momenten om te genereren</label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-slate-50 rounded-xl p-2">
+                  {vasteTrainingen.map(v => (
+                    <label key={v.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded text-indigo-600"
+                        checked={selectedVasteIds.includes(v.id)}
+                        onChange={(e) => {
+                          if(e.target.checked) setSelectedVasteIds([...selectedVasteIds, v.id]);
+                          else setSelectedVasteIds(selectedVasteIds.filter(id => id !== v.id));
+                        }}
+                      />
+                      <span className="text-sm font-medium">
+                        {groepen.find(g => g.id === v.groepId)?.naam} - {v.dag} ({v.startUur}-{v.eindUur})
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                  <strong>Let op:</strong> Deze actie zal alle eerder ingeplande trainingen voor de geselecteerde groepen op die specifieke weekdagen binnen het seizoen overschrijven.
+                </p>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
+                Bevestig en Plan in
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: ADMIN EDIT/ADD */}
       {showAdminModal && (
@@ -384,7 +502,7 @@ const App = () => {
         </div>
       )}
 
-      {/* MODAL: KALENDER PLANNING (ONGELIMITEERDE STYLING) */}
+      {/* MODAL: KALENDER PLANNING */}
       {showTrainingModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
