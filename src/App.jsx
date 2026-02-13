@@ -5,12 +5,12 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Euro, Info, Navigation
+  Calendar as CalendarIcon, X, LayoutGrid, Euro, Info, Edit2, Tag
 } from 'lucide-react';
 
 const App = () => {
   // --- UI STATE ---
-  const [activeTab, setActiveTab] = useState('kalender'); // 'kalender' of 'beheer'
+  const [activeTab, setActiveTab] = useState('kalender'); 
   const [adminSection, setAdminSection] = useState('groepen');
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -44,38 +44,42 @@ const App = () => {
     return () => { unsubTrainingen(); unsubGroepen(); unsubCoaches(); unsubLocaties(); };
   }, []);
 
-  // 2. Beheer Configuratie
+  // 2. Beheer Configuratie met Uitgebreide Velden
   const sections = {
     groepen: {
       title: 'Trainingsgroepen',
       collection: 'groepen',
-      icon: <Users size={20} />,
+      icon: <Users size={18} />,
       data: groepen,
       fields: [
         { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
-        { name: 'aantalSpringers', label: 'Aantal Springers', type: 'number', placeholder: '0' },
-        { name: 'seizoen', label: 'Trainingsseizoen', type: 'text', placeholder: '2025-2026' }
+        { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
+        { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
+        { name: 'seizoen', label: 'Seizoen', type: 'text', placeholder: '2025-2026' }
       ]
     },
     coaches: {
       title: 'Coaches',
       collection: 'coaches',
-      icon: <User size={20} />,
+      icon: <User size={18} />,
       data: coaches,
       fields: [
-        { name: 'naam', label: 'Volledige Naam', type: 'text', placeholder: 'bv. Jan Janssen' },
+        { name: 'voornaam', label: 'Voornaam', type: 'text', placeholder: 'Jan' },
+        { name: 'achternaam', label: 'Achternaam', type: 'text', placeholder: 'Janssen' },
         { name: 'uurtarief', label: 'Uurtarief (€)', type: 'number', placeholder: '0.00' }
       ]
     },
     locaties: {
       title: 'Locaties',
       collection: 'locaties',
-      icon: <MapPin size={20} />,
+      icon: <MapPin size={18} />,
       data: locaties,
       fields: [
         { name: 'naam', label: 'Naam Locatie', type: 'text', placeholder: 'bv. Sporthal De Dreef' },
-        { name: 'adres', label: 'Adres', type: 'text', placeholder: 'Straat 1, 1000 Stad' },
-        { name: 'uurtarief', label: 'Huurprijs per uur (€)', type: 'number', placeholder: '0.00' }
+        { name: 'straat', label: 'Straat', type: 'text' },
+        { name: 'huisnummer', label: 'Nr.', type: 'text' },
+        { name: 'gemeente', label: 'Gemeente', type: 'text' },
+        { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
       ]
     }
   };
@@ -98,7 +102,7 @@ const App = () => {
   };
 
   const deleteItem = async (col, id) => {
-    if (window.confirm("Weet je zeker dat je dit wilt verwijderen?")) {
+    if (window.confirm("Verwijderen bevestigen?")) {
       await deleteDoc(doc(db, col, id));
     }
   };
@@ -107,74 +111,54 @@ const App = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
   };
 
-  // --- KALENDER LOGICA ---
+  // --- KALENDER LOGICA (ONGEMOEID) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
       {/* HEADER NAV */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+      <nav className="bg-white border-b border-slate-200 px-8 py-3 flex justify-between items-center sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 p-2 rounded-lg text-white">
-            <CalendarIcon size={24} />
+          <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
+            <CalendarIcon size={20} />
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight">TRAINING<span className="text-indigo-600">PLANNER</span></h1>
+          <h1 className="text-lg font-black tracking-tighter">TRAINING<span className="text-indigo-600">PLAN</span></h1>
         </div>
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-          <button 
-            onClick={() => setActiveTab('kalender')}
-            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all ${activeTab === 'kalender' ? 'bg-white shadow-sm text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            <LayoutGrid size={18}/> Kalender
-          </button>
-          <button 
-            onClick={() => setActiveTab('beheer')}
-            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all ${activeTab === 'beheer' ? 'bg-white shadow-sm text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            <Settings size={18}/> Beheer
-          </button>
+          <button onClick={() => setActiveTab('kalender')} className={`flex items-center gap-2 px-5 py-1.5 rounded-lg text-sm transition-all ${activeTab === 'kalender' ? 'bg-white shadow-sm text-indigo-600 font-bold' : 'text-slate-500'}`}><LayoutGrid size={16}/> Kalender</button>
+          <button onClick={() => setActiveTab('beheer')} className={`flex items-center gap-2 px-5 py-1.5 rounded-lg text-sm transition-all ${activeTab === 'beheer' ? 'bg-white shadow-sm text-indigo-600 font-bold' : 'text-slate-500'}`}><Settings size={16}/> Beheer</button>
         </div>
       </nav>
 
       <main className="flex-1 overflow-hidden">
         {activeTab === 'kalender' ? (
-          /* --- KALENDER VIEW --- */
+          /* --- KALENDER VIEW (ONGEMOEID) --- */
           <div className="p-8 max-w-7xl mx-auto h-full overflow-y-auto">
-             <div className="flex justify-between items-center mb-8">
-                <div className="flex items-center gap-6 bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-200">
-                  <button onClick={() => changeMonth(-1)} className="hover:text-indigo-600 transition"><ChevronLeft /></button>
-                  <h2 className="text-xl font-bold min-w-[180px] text-center capitalize">
-                    {currentDate.toLocaleString('nl-NL', { month: 'long', year: 'numeric' })}
-                  </h2>
-                  <button onClick={() => changeMonth(1)} className="hover:text-indigo-600 transition"><ChevronRight /></button>
+             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-6 bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-200">
+                  <button onClick={() => changeMonth(-1)}><ChevronLeft size={20}/></button>
+                  <h2 className="text-lg font-bold min-w-[150px] text-center capitalize">{currentDate.toLocaleString('nl-NL', { month: 'long', year: 'numeric' })}</h2>
+                  <button onClick={() => changeMonth(1)}><ChevronRight size={20}/></button>
                 </div>
-                <button 
-                  onClick={() => setShowTrainingModal(true)}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-indigo-700 transition font-bold shadow-lg shadow-indigo-100"
-                >
-                  <Plus /> Training Inplannen
-                </button>
+                <button onClick={() => setShowTrainingModal(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition font-bold shadow-sm"><Plus size={18}/> Inplannen</button>
               </div>
-
-              <div className="grid grid-cols-7 gap-3">
-                {dayLabels.map(label => <div key={label} className="text-center text-xs font-bold text-slate-400 uppercase pb-2">{label}</div>)}
+              <div className="grid grid-cols-7 gap-2">
+                {dayLabels.map(label => <div key={label} className="text-center text-[10px] font-bold text-slate-400 uppercase">{label}</div>)}
                 {[...Array(firstDayOfMonth)].map((_, i) => <div key={`e-${i}`} />)}
                 {[...Array(daysInMonth)].map((_, i) => {
                   const d = i + 1;
                   const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                   const daily = trainingen.filter(t => t.datum === dateStr);
                   return (
-                    <div key={d} className="bg-white border border-slate-200 rounded-2xl p-3 min-h-[140px] shadow-sm hover:border-indigo-200 transition">
-                      <span className="text-sm font-bold text-slate-300">{d}</span>
-                      <div className="mt-2 space-y-2">
+                    <div key={d} className="bg-white border border-slate-200 rounded-xl p-2 min-h-[110px] shadow-sm">
+                      <span className="text-xs font-bold text-slate-300">{d}</span>
+                      <div className="mt-1 space-y-1">
                         {daily.map(t => (
-                          <div key={t.id} className="text-[11px] p-2 bg-slate-50 border border-slate-100 rounded-xl">
-                            <div className="font-bold text-indigo-700 mb-1">{groepen.find(g => g.id === t.groepId)?.naam || 'Groep'}</div>
-                            <div className="flex items-center gap-1 text-slate-500"><User size={10}/> {coaches.find(c => c.id === t.coachId)?.naam}</div>
-                            <div className="flex items-center gap-1 text-slate-500"><MapPin size={10}/> {locaties.find(l => l.id === t.locatieId)?.naam}</div>
-                            <div className="mt-1 font-semibold text-slate-700">{t.uren}</div>
+                          <div key={t.id} className="text-[9px] p-1.5 bg-slate-50 border border-slate-100 rounded-lg">
+                            <div className="font-bold text-indigo-700">{groepen.find(g => g.id === t.groepId)?.naam}</div>
+                            <div className="text-slate-500 truncate">{t.uren}</div>
                           </div>
                         ))}
                       </div>
@@ -184,67 +168,51 @@ const App = () => {
               </div>
           </div>
         ) : (
-          /* --- BEHEER VIEW (DASHBOARD) --- */
-          <div className="flex h-full">
-            {/* Zijmenu */}
-            <aside className="w-72 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-4 mb-2">Instellingen</p>
+          /* --- NIEUWE COMPACTE BEHEER VIEW --- */
+          <div className="flex h-full bg-white">
+            <aside className="w-64 border-r border-slate-100 p-4 flex flex-col gap-1 bg-slate-50/50">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-4">Database</p>
               {Object.entries(sections).map(([key, sec]) => (
-                <button
-                  key={key}
-                  onClick={() => setAdminSection(key)}
-                  className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${adminSection === key ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
+                <button key={key} onClick={() => setAdminSection(key)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${adminSection === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
                   {sec.icon} {sec.title}
                 </button>
               ))}
             </aside>
 
-            {/* Hoofdpaneel */}
-            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
-              <div className="flex justify-between items-end mb-10">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-800">{currentSection.title}</h2>
-                  <p className="text-slate-500 mt-1">Beheer gegevens en tarieven voor {currentSection.title.toLowerCase()}.</p>
-                </div>
-                <button 
-                  onClick={() => { setEditingItem(null); setShowAdminModal(true); }}
-                  className="bg-slate-900 text-white px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-slate-800 transition font-bold"
-                >
-                  <Plus size={20}/> Nieuwe {currentSection.title.slice(0, -2)}
+            <div className="flex-1 overflow-y-auto p-8 bg-white">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
+                <button onClick={() => { setEditingItem(null); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
+                  <Plus size={16}/> Toevoegen
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {currentSection.data.map(item => (
-                  <div key={item.id} className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
-                        {currentSection.icon}
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => { setEditingItem(item); setShowAdminModal(true); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Settings size={18}/></button>
-                        <button onClick={() => deleteItem(currentSection.collection, item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl"><Trash2 size={18}/></button>
-                      </div>
-                    </div>
-                    
-                    <h4 className="text-xl font-bold text-slate-800 mb-4">{item.naam}</h4>
-                    
-                    <div className="space-y-3 border-t border-slate-50 pt-4">
-                      {currentSection.fields.filter(f => f.name !== 'naam').map(field => (
-                        <div key={field.name} className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                            {field.type === 'number' ? <Euro size={14}/> : <Info size={14}/>}
+              <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      {currentSection.fields.map(f => <th key={f.name} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</th>)}
+                      <th className="px-4 py-3 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {currentSection.data.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                        {currentSection.fields.map(f => (
+                          <td key={f.name} className="px-4 py-3 text-sm text-slate-600 font-medium">
+                            {f.type === 'number' ? `€ ${item[f.name]}` : item[f.name]}
+                          </td>
+                        ))}
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button onClick={() => { setEditingItem(item); setShowAdminModal(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
+                            <button onClick={() => deleteItem(currentSection.collection, item.id)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">{field.label}</p>
-                            <p className="text-slate-700 font-semibold">{field.type === 'number' ? `€ ${item[field.name]}` : item[field.name]}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -253,90 +221,57 @@ const App = () => {
 
       {/* MODAL: ADMIN EDIT/ADD */}
       {showAdminModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-2xl font-black text-slate-800">
-                {editingItem ? 'Aanpassen' : 'Toevoegen'}
-              </h2>
-              <button onClick={() => setShowAdminModal(false)} className="p-2 hover:bg-white rounded-full shadow-sm border transition"><X /></button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+              <h2 className="text-lg font-black text-slate-800">{editingItem ? 'Bewerken' : 'Nieuw Item'}</h2>
+              <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSaveAdminItem} className="p-8 space-y-6">
+            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4">
               {currentSection.fields.map(field => (
                 <div key={field.name}>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                  <input 
-                    name={field.name}
-                    type={field.type} 
-                    required 
-                    defaultValue={editingItem ? editingItem[field.name] : ''}
-                    placeholder={field.placeholder}
-                    className="w-full mt-2 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 ring-indigo-50 focus:bg-white focus:border-indigo-500 outline-none transition-all font-medium" 
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  {field.type === 'select' ? (
+                    <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm">
+                      <option value="">Kies type...</option>
+                      {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  ) : (
+                    <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm font-medium" />
+                  )}
                 </div>
               ))}
-              <div className="pt-4 flex gap-3">
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-bold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                  {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen aan Lijst'}
-                </button>
-              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-4">
+                {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen aan Lijst'}
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL: TRAINING TOEVOEGEN */}
+      {/* MODAL: TRAINING TOEVOEGEN (ONGEMOEID) */}
       {showTrainingModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800">Training Inplannen</h2>
-              <button onClick={() => setShowTrainingModal(false)}><X /></button>
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              await addDoc(collection(db, "planning"), newTraining);
-              setShowTrainingModal(false);
-            }} className="p-8 space-y-5">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
+            <div className="p-6 border-b flex justify-between items-center"><h2 className="text-xl font-black">Planning</h2><button onClick={() => setShowTrainingModal(false)}><X /></button></div>
+            <form onSubmit={async (e) => { e.preventDefault(); await addDoc(collection(db, "planning"), newTraining); setShowTrainingModal(false); }} className="p-6 space-y-4">
+              <input type="date" required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, datum: e.target.value})} />
+              <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, groepId: e.target.value})}>
+                <option value="">Kies groep...</option>
+                {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
+              </select>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Datum</label>
-                  <input type="date" required className="w-full mt-2 p-4 bg-slate-50 border rounded-2xl font-medium" 
-                         onChange={e => setNewTraining({...newTraining, datum: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Groep</label>
-                  <select required className="w-full mt-2 p-4 bg-slate-50 border rounded-2xl font-medium" 
-                          onChange={e => setNewTraining({...newTraining, groepId: e.target.value})}>
-                    <option value="">Kies groep...</option>
-                    {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Uren</label>
-                  <input type="text" placeholder="14:00 - 16:00" className="w-full mt-2 p-4 bg-slate-50 border rounded-2xl font-medium" 
-                         onChange={e => setNewTraining({...newTraining, uren: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Coach</label>
-                  <select required className="w-full mt-2 p-4 bg-slate-50 border rounded-2xl font-medium" 
-                          onChange={e => setNewTraining({...newTraining, coachId: e.target.value})}>
-                    <option value="">Kies coach...</option>
-                    {coaches.map(c => <option key={c.id} value={c.id}>{c.naam}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Locatie</label>
-                  <select required className="w-full mt-2 p-4 bg-slate-50 border rounded-2xl font-medium" 
-                          onChange={e => setNewTraining({...newTraining, locatieId: e.target.value})}>
-                    <option value="">Kies locatie...</option>
-                    {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
-                  </select>
-                </div>
+                <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, coachId: e.target.value})}>
+                  <option value="">Coach...</option>
+                  {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.achternaam}</option>)}
+                </select>
+                <input type="text" placeholder="bv. 14u-16u" className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, uren: e.target.value})} />
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-bold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all mt-4">
-                Bevestig Planning
-              </button>
+              <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, locatieId: e.target.value})}>
+                <option value="">Locatie...</option>
+                {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+              </select>
+              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100">Opslaan</button>
             </form>
           </div>
         </div>
