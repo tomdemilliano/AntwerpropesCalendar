@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Euro, Info, Edit2, Tag
+  Calendar as CalendarIcon, X, LayoutGrid, Euro, Info, Edit2, Tag, Clock, CalendarDays
 } from 'lucide-react';
 
 const App = () => {
@@ -18,10 +18,12 @@ const App = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // --- DATA STATE ---
-  const [trainingen, setTrainingen] = useState([]);
+  const [trainingen, setTrainingen] = useState([]); // De geplande momenten (kalender)
   const [groepen, setGroepen] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [locaties, setLocaties] = useState([]);
+  const [seizoenen, setSeizoenen] = useState([]);
+  const [vasteTrainingen, setVasteTrainingen] = useState([]); // De wekelijkse schema's
 
   // --- FORM STATE ---
   const [newTraining, setNewTraining] = useState({ datum: '', groepId: '', coachId: '', locatieId: '', uren: '' });
@@ -40,11 +42,20 @@ const App = () => {
     const unsubLocaties = onSnapshot(collection(db, "locaties"), (snapshot) => {
       setLocaties(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+    const unsubSeizoenen = onSnapshot(query(collection(db, "seizoenen"), orderBy("startDatum", "desc")), (snapshot) => {
+      setSeizoenen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    const unsubVasteTrainingen = onSnapshot(collection(db, "vasteTrainingen"), (snapshot) => {
+      setVasteTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
-    return () => { unsubTrainingen(); unsubGroepen(); unsubCoaches(); unsubLocaties(); };
+    return () => { 
+      unsubTrainingen(); unsubGroepen(); unsubCoaches(); 
+      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); 
+    };
   }, []);
 
-  // 2. Beheer Configuratie met Uitgebreide Velden
+  // 2. Beheer Configuratie
   const sections = {
     groepen: {
       title: 'Trainingsgroepen',
@@ -81,6 +92,30 @@ const App = () => {
         { name: 'gemeente', label: 'Gemeente', type: 'text' },
         { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
       ]
+    },
+    seizoenen: {
+      title: 'Seizoenen',
+      collection: 'seizoenen',
+      icon: <CalendarDays size={18} />,
+      data: seizoenen,
+      fields: [
+        { name: 'naam', label: 'Naam Seizoen', type: 'text', placeholder: 'bv. 2025-2026' },
+        { name: 'startDatum', label: 'Startdatum', type: 'date' },
+        { name: 'eindDatum', label: 'Einddatum', type: 'date' }
+      ]
+    },
+    vasteTrainingen: {
+      title: 'Wekelijkse Trainingen',
+      collection: 'vasteTrainingen',
+      icon: <Clock size={18} />,
+      data: vasteTrainingen,
+      fields: [
+        { name: 'groepId', label: 'Groep', type: 'select', options: groepen.map(g => ({ value: g.id, label: g.naam })) },
+        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'] },
+        { name: 'startUur', label: 'Startuur', type: 'time' },
+        { name: 'eindUur', label: 'Einduur', type: 'time' },
+        { name: 'coachIds', label: 'Coaches', type: 'multi-select', options: coaches.map(c => ({ value: c.id, label: `${c.voornaam} ${c.achternaam}` })) }
+      ]
     }
   };
 
@@ -91,6 +126,14 @@ const App = () => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
+    
+    // Speciale afhandeling voor multi-select (coaches)
+    if (currentSection.collection === 'vasteTrainingen') {
+      const selectedCoaches = Array.from(e.target.elements)
+        .filter(el => el.name === 'coachIds' && el.checked)
+        .map(el => el.value);
+      data.coachIds = selectedCoaches;
+    }
 
     if (editingItem) {
       await updateDoc(doc(db, currentSection.collection, editingItem.id), data);
@@ -111,7 +154,18 @@ const App = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
   };
 
-  // --- KALENDER LOGICA (ONGEMOEID) ---
+  // Helper om namen te tonen in de tabel
+  const renderCellContent = (item, field) => {
+    const value = item[field.name];
+    if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
+    if (field.name === 'coachIds' && Array.isArray(value)) {
+      return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
+    }
+    if (field.type === 'number') return `€ ${value}`;
+    return value;
+  };
+
+  // --- KALENDER LOGICA ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
@@ -134,7 +188,7 @@ const App = () => {
 
       <main className="flex-1 overflow-hidden">
         {activeTab === 'kalender' ? (
-          /* --- KALENDER VIEW (ONGEMOEID) --- */
+          /* --- KALENDER VIEW --- */
           <div className="p-8 max-w-7xl mx-auto h-full overflow-y-auto">
              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-6 bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-200">
@@ -168,7 +222,7 @@ const App = () => {
               </div>
           </div>
         ) : (
-          /* --- NIEUWE COMPACTE BEHEER VIEW --- */
+          /* --- BEHEER VIEW --- */
           <div className="flex h-full bg-white">
             <aside className="w-64 border-r border-slate-100 p-4 flex flex-col gap-1 bg-slate-50/50">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-4">Database</p>
@@ -200,7 +254,7 @@ const App = () => {
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                         {currentSection.fields.map(f => (
                           <td key={f.name} className="px-4 py-3 text-sm text-slate-600 font-medium">
-                            {f.type === 'number' ? `€ ${item[f.name]}` : item[f.name]}
+                            {renderCellContent(item, f)}
                           </td>
                         ))}
                         <td className="px-4 py-3 text-right">
@@ -227,15 +281,35 @@ const App = () => {
               <h2 className="text-lg font-black text-slate-800">{editingItem ? 'Bewerken' : 'Nieuw Item'}</h2>
               <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4">
+            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               {currentSection.fields.map(field => (
                 <div key={field.name}>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  
                   {field.type === 'select' ? (
                     <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm">
-                      <option value="">Kies type...</option>
-                      {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <option value="">Kies...</option>
+                      {field.options.map(opt => (
+                        <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
+                          {typeof opt === 'string' ? opt : opt.label}
+                        </option>
+                      ))}
                     </select>
+                  ) : field.type === 'multi-select' ? (
+                    <div className="mt-2 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      {field.options.map(opt => (
+                        <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            name={field.name} 
+                            value={opt.value} 
+                            defaultChecked={editingItem?.coachIds?.includes(opt.value)}
+                            className="rounded text-indigo-600 focus:ring-indigo-500"
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
                   ) : (
                     <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm font-medium" />
                   )}
@@ -249,7 +323,7 @@ const App = () => {
         </div>
       )}
 
-      {/* MODAL: TRAINING TOEVOEGEN (ONGEMOEID) */}
+      {/* MODAL: TRAINING TOEVOEGEN (KALENDER) */}
       {showTrainingModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
