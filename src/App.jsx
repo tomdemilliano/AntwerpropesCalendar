@@ -162,7 +162,6 @@ const App = () => {
     setSelectedCoachIds([]);
   };
 
-  // Logica voor bulk inplannen
   const handleBulkSchedule = async (e) => {
     e.preventDefault();
     if (!selectedSeasonId || selectedVasteIds.length === 0) return;
@@ -172,23 +171,26 @@ const App = () => {
     const eind = new Date(seizoen.eindDatum);
     const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
+    // Om de index-error te vermijden, halen we alle planning items op van het seizoen
+    // en filteren we lokaal in plaats van via een samengestelde Firestore query.
+    const q = query(
+      collection(db, "planning"), 
+      where("datum", ">=", seizoen.startDatum),
+      where("datum", "<=", seizoen.eindDatum)
+    );
+    const existingDocs = await getDocs(q);
+    
     const batch = writeBatch(db);
 
     for (const vasteId of selectedVasteIds) {
       const vaste = vasteTrainingen.find(v => v.id === vasteId);
       const targetDag = dagIndexen[vaste.dag];
 
-      // 1. Verwijder bestaande trainingen voor deze groep en dag in deze periode
-      const q = query(
-        collection(db, "planning"), 
-        where("groepId", "==", vaste.groepId),
-        where("datum", ">=", seizoen.startDatum),
-        where("datum", "<=", seizoen.eindDatum)
-      );
-      const existingDocs = await getDocs(q);
+      // 1. Verwijder bestaande trainingen voor DEZE groep en DEZE weekdag binnen de periode
       existingDocs.forEach(docSnap => {
-        const d = new Date(docSnap.data().datum);
-        if (d.getDay() === targetDag) {
+        const data = docSnap.data();
+        const d = new Date(data.datum);
+        if (data.groepId === vaste.groepId && d.getDay() === targetDag) {
           batch.delete(docSnap.ref);
         }
       });
@@ -204,7 +206,7 @@ const App = () => {
             groepId: vaste.groepId,
             locatieId: vaste.locatieId,
             uren: `${vaste.startUur}-${vaste.eindUur}`,
-            coachId: vaste.coachIds?.[0] || '', // Neemt eerste coach als hoofdcoach voor kalender-view compatibiliteit
+            coachId: vaste.coachIds?.[0] || '',
             coachIds: vaste.coachIds || []
           });
         }
