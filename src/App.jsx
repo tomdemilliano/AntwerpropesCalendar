@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase';
 import { 
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc 
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Euro, Info, Edit2, Tag, Clock, CalendarDays
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search
 } from 'lucide-react';
 
 const App = () => {
@@ -16,19 +16,24 @@ const App = () => {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // State voor de nieuwe Tag Input
+  const [coachSearch, setCoachSearch] = useState('');
+  const [selectedCoachIds, setSelectedCoachIds] = useState([]);
+  const [isCoachDropdownOpen, setIsCoachDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // --- DATA STATE ---
-  const [trainingen, setTrainingen] = useState([]); // De geplande momenten (kalender)
+  const [trainingen, setTrainingen] = useState([]);
   const [groepen, setGroepen] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [locaties, setLocaties] = useState([]);
   const [seizoenen, setSeizoenen] = useState([]);
-  const [vasteTrainingen, setVasteTrainingen] = useState([]); // De wekelijkse schema's
+  const [vasteTrainingen, setVasteTrainingen] = useState([]);
 
   // --- FORM STATE ---
   const [newTraining, setNewTraining] = useState({ datum: '', groepId: '', coachId: '', locatieId: '', uren: '' });
 
-  // 1. Firebase Real-time Sync
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
       setTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -55,7 +60,17 @@ const App = () => {
     };
   }, []);
 
-  // 2. Beheer Configuratie
+  // Sluit dropdown bij klik buitenveld
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsCoachDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const sections = {
     groepen: {
       title: 'Trainingsgroepen',
@@ -112,27 +127,22 @@ const App = () => {
       fields: [
         { name: 'groepId', label: 'Groep', type: 'select', options: groepen.map(g => ({ value: g.id, label: g.naam })) },
         { name: 'dag', label: 'Weekdag', type: 'select', options: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'] },
-        { name: 'startUur', label: 'Startuur', type: 'time' },
-        { name: 'eindUur', label: 'Einduur', type: 'time' },
-        { name: 'coachIds', label: 'Coaches', type: 'multi-select', options: coaches.map(c => ({ value: c.id, label: `${c.voornaam} ${c.achternaam}` })) }
+        { name: 'startUur', label: 'Startuur (24u)', type: 'time' },
+        { name: 'eindUur', label: 'Einduur (24u)', type: 'time' },
+        { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' }
       ]
     }
   };
 
   const currentSection = sections[adminSection];
 
-  // 3. Handlers
   const handleSaveAdminItem = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     
-    // Speciale afhandeling voor multi-select (coaches)
     if (currentSection.collection === 'vasteTrainingen') {
-      const selectedCoaches = Array.from(e.target.elements)
-        .filter(el => el.name === 'coachIds' && el.checked)
-        .map(el => el.value);
-      data.coachIds = selectedCoaches;
+      data.coachIds = selectedCoachIds;
     }
 
     if (editingItem) {
@@ -142,42 +152,44 @@ const App = () => {
     }
     setShowAdminModal(false);
     setEditingItem(null);
+    setSelectedCoachIds([]);
   };
 
-  const deleteItem = async (col, id) => {
-    if (window.confirm("Verwijderen bevestigen?")) {
-      await deleteDoc(doc(db, col, id));
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    if (adminSection === 'vasteTrainingen') {
+      setSelectedCoachIds(item.coachIds || []);
     }
+    setShowAdminModal(true);
   };
 
-  const changeMonth = (offset) => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+  const toggleCoach = (id) => {
+    setSelectedCoachIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+    setCoachSearch('');
   };
 
-  // Helper om namen te tonen in de tabel
   const renderCellContent = (item, field) => {
     const value = item[field.name];
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
     if (field.name === 'coachIds' && Array.isArray(value)) {
       return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
     }
-    if (field.type === 'number') return `€ ${value}`;
+    if (field.type === 'number' && field.name === 'uurtarief') return `€ ${value}`;
     return value;
   };
 
-  // --- KALENDER LOGICA ---
+  // Kalender data berekening
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
-      {/* HEADER NAV */}
       <nav className="bg-white border-b border-slate-200 px-8 py-3 flex justify-between items-center sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-            <CalendarIcon size={20} />
-          </div>
+          <div className="bg-indigo-600 p-1.5 rounded-lg text-white"><CalendarIcon size={20} /></div>
           <h1 className="text-lg font-black tracking-tighter">TRAINING<span className="text-indigo-600">PLAN</span></h1>
         </div>
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -188,13 +200,13 @@ const App = () => {
 
       <main className="flex-1 overflow-hidden">
         {activeTab === 'kalender' ? (
-          /* --- KALENDER VIEW --- */
           <div className="p-8 max-w-7xl mx-auto h-full overflow-y-auto">
+             {/* Kalender UI (ongewijzigd) */}
              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-6 bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-200">
-                  <button onClick={() => changeMonth(-1)}><ChevronLeft size={20}/></button>
+                  <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}><ChevronLeft size={20}/></button>
                   <h2 className="text-lg font-bold min-w-[150px] text-center capitalize">{currentDate.toLocaleString('nl-NL', { month: 'long', year: 'numeric' })}</h2>
-                  <button onClick={() => changeMonth(1)}><ChevronRight size={20}/></button>
+                  <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}><ChevronRight size={20}/></button>
                 </div>
                 <button onClick={() => setShowTrainingModal(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition font-bold shadow-sm"><Plus size={18}/> Inplannen</button>
               </div>
@@ -222,12 +234,11 @@ const App = () => {
               </div>
           </div>
         ) : (
-          /* --- BEHEER VIEW --- */
           <div className="flex h-full bg-white">
             <aside className="w-64 border-r border-slate-100 p-4 flex flex-col gap-1 bg-slate-50/50">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-4">Database</p>
               {Object.entries(sections).map(([key, sec]) => (
-                <button key={key} onClick={() => setAdminSection(key)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${adminSection === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                <button key={key} onClick={() => { setAdminSection(key); setSelectedCoachIds([]); }} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${adminSection === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
                   {sec.icon} {sec.title}
                 </button>
               ))}
@@ -236,7 +247,7 @@ const App = () => {
             <div className="flex-1 overflow-y-auto p-8 bg-white">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
-                <button onClick={() => { setEditingItem(null); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
+                <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
                   <Plus size={16}/> Toevoegen
                 </button>
               </div>
@@ -253,14 +264,12 @@ const App = () => {
                     {currentSection.data.map(item => (
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                         {currentSection.fields.map(f => (
-                          <td key={f.name} className="px-4 py-3 text-sm text-slate-600 font-medium">
-                            {renderCellContent(item, f)}
-                          </td>
+                          <td key={f.name} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, f)}</td>
                         ))}
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <button onClick={() => { setEditingItem(item); setShowAdminModal(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
-                            <button onClick={() => deleteItem(currentSection.collection, item.id)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                            <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
+                            <button onClick={async () => { if(window.confirm("Verwijderen?")) await deleteDoc(doc(db, currentSection.collection, item.id)); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
                           </div>
                         </td>
                       </tr>
@@ -281,13 +290,53 @@ const App = () => {
               <h2 className="text-lg font-black text-slate-800">{editingItem ? 'Bewerken' : 'Nieuw Item'}</h2>
               <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               {currentSection.fields.map(field => (
-                <div key={field.name}>
+                <div key={field.name} className="relative">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
                   
-                  {field.type === 'select' ? (
-                    <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm">
+                  {field.type === 'tag-input' ? (
+                    <div className="mt-1" ref={dropdownRef}>
+                      {/* Selected Tags */}
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedCoachIds.map(id => {
+                          const coach = coaches.find(c => c.id === id);
+                          return (
+                            <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
+                              {coach?.voornaam} {coach?.achternaam}
+                              <button type="button" onClick={() => toggleCoach(id)} className="hover:text-indigo-900"><X size={12}/></button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {/* Search Field */}
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          placeholder="Zoek coach..." 
+                          value={coachSearch}
+                          onFocus={() => setIsCoachDropdownOpen(true)}
+                          onChange={(e) => setCoachSearch(e.target.value)}
+                          className="w-full p-3 pl-10 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
+                        />
+                        <Search className="absolute left-3 top-3.5 text-slate-400" size={16} />
+                      </div>
+                      {/* Dropdown Results */}
+                      {isCoachDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-40 overflow-y-auto">
+                          {coaches
+                            .filter(c => !selectedCoachIds.includes(c.id))
+                            .filter(c => `${c.voornaam} ${c.achternaam}`.toLowerCase().includes(coachSearch.toLowerCase()))
+                            .map(c => (
+                              <button key={c.id} type="button" onClick={() => toggleCoach(c.id)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0">
+                                {c.voornaam} {c.achternaam}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : field.type === 'select' ? (
+                    <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm">
                       <option value="">Kies...</option>
                       {field.options.map(opt => (
                         <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
@@ -295,35 +344,20 @@ const App = () => {
                         </option>
                       ))}
                     </select>
-                  ) : field.type === 'multi-select' ? (
-                    <div className="mt-2 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      {field.options.map(opt => (
-                        <label key={opt.value} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            name={field.name} 
-                            value={opt.value} 
-                            defaultChecked={editingItem?.coachIds?.includes(opt.value)}
-                            className="rounded text-indigo-600 focus:ring-indigo-500"
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
                   ) : (
-                    <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 focus:border-indigo-500 outline-none transition text-sm font-medium" />
+                    <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" />
                   )}
                 </div>
               ))}
-              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-4">
-                {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen aan Lijst'}
+              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all mt-4">
+                {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL: TRAINING TOEVOEGEN (KALENDER) */}
+      {/* MODAL: KALENDER PLANNING (ONGELIMITEERDE STYLING) */}
       {showTrainingModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
