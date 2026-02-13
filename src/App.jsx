@@ -17,7 +17,7 @@ const App = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // State voor de nieuwe Tag Input
+  // State voor de Tag Input (Coaches)
   const [coachSearch, setCoachSearch] = useState('');
   const [selectedCoachIds, setSelectedCoachIds] = useState([]);
   const [isCoachDropdownOpen, setIsCoachDropdownOpen] = useState(false);
@@ -60,7 +60,7 @@ const App = () => {
     };
   }, []);
 
-  // Sluit dropdown bij klik buitenveld
+  // Dropdown sluiten bij klik buitenveld
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -127,8 +127,10 @@ const App = () => {
       fields: [
         { name: 'groepId', label: 'Groep', type: 'select', options: groepen.map(g => ({ value: g.id, label: g.naam })) },
         { name: 'dag', label: 'Weekdag', type: 'select', options: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'] },
-        { name: 'startUur', label: 'Startuur (24u)', type: 'time' },
-        { name: 'eindUur', label: 'Einduur (24u)', type: 'time' },
+        { isRow: true, fields: [
+          { name: 'startUur', label: 'Start', type: 'time' },
+          { name: 'eindUur', label: 'Einde', type: 'time' }
+        ]},
         { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' }
       ]
     }
@@ -180,10 +182,70 @@ const App = () => {
     return value;
   };
 
-  // Kalender data berekening
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+
+  // Helper component voor individuele velden in de modal
+  const RenderInputField = (field) => {
+    if (field.type === 'tag-input') {
+      return (
+        <div className="mt-1" ref={dropdownRef}>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {selectedCoachIds.map(id => {
+              const coach = coaches.find(c => c.id === id);
+              return (
+                <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
+                  {coach?.voornaam} {coach?.achternaam}
+                  <button type="button" onClick={() => toggleCoach(id)} className="hover:text-indigo-900"><X size={12}/></button>
+                </span>
+              );
+            })}
+          </div>
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Zoek coach..." 
+              value={coachSearch}
+              onFocus={() => setIsCoachDropdownOpen(true)}
+              onChange={(e) => setCoachSearch(e.target.value)}
+              className="w-full p-3 pl-10 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
+            />
+            <Search className="absolute left-3 top-3.5 text-slate-400" size={16} />
+          </div>
+          {isCoachDropdownOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-40 overflow-y-auto">
+              {coaches
+                .filter(c => !selectedCoachIds.includes(c.id))
+                .filter(c => `${c.voornaam} ${c.achternaam}`.toLowerCase().includes(coachSearch.toLowerCase()))
+                .map(c => (
+                  <button key={c.id} type="button" onClick={() => toggleCoach(c.id)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0">
+                    {c.voornaam} {c.achternaam}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    if (field.type === 'select') {
+      return (
+        <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm">
+          <option value="">Kies...</option>
+          {field.options.map(opt => (
+            <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
+              {typeof opt === 'string' ? opt : opt.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
@@ -201,7 +263,6 @@ const App = () => {
       <main className="flex-1 overflow-hidden">
         {activeTab === 'kalender' ? (
           <div className="p-8 max-w-7xl mx-auto h-full overflow-y-auto">
-             {/* Kalender UI (ongewijzigd) */}
              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-6 bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-200">
                   <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}><ChevronLeft size={20}/></button>
@@ -256,16 +317,20 @@ const App = () => {
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      {currentSection.fields.map(f => <th key={f.name} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</th>)}
+                      {currentSection.fields.map((f, i) => {
+                        if (f.isRow) return f.fields.map(sub => <th key={sub.name} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sub.label}</th>);
+                        return <th key={f.name || i} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</th>;
+                      })}
                       <th className="px-4 py-3 text-right"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {currentSection.data.map(item => (
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                        {currentSection.fields.map(f => (
-                          <td key={f.name} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, f)}</td>
-                        ))}
+                        {currentSection.fields.map((f, i) => {
+                          if (f.isRow) return f.fields.map(sub => <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, sub)}</td>);
+                          return <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, f)}</td>;
+                        })}
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                             <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
@@ -291,64 +356,26 @@ const App = () => {
               <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
             <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {currentSection.fields.map(field => (
-                <div key={field.name} className="relative">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                  
-                  {field.type === 'tag-input' ? (
-                    <div className="mt-1" ref={dropdownRef}>
-                      {/* Selected Tags */}
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {selectedCoachIds.map(id => {
-                          const coach = coaches.find(c => c.id === id);
-                          return (
-                            <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
-                              {coach?.voornaam} {coach?.achternaam}
-                              <button type="button" onClick={() => toggleCoach(id)} className="hover:text-indigo-900"><X size={12}/></button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                      {/* Search Field */}
-                      <div className="relative">
-                        <input 
-                          type="text" 
-                          placeholder="Zoek coach..." 
-                          value={coachSearch}
-                          onFocus={() => setIsCoachDropdownOpen(true)}
-                          onChange={(e) => setCoachSearch(e.target.value)}
-                          className="w-full p-3 pl-10 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
-                        />
-                        <Search className="absolute left-3 top-3.5 text-slate-400" size={16} />
-                      </div>
-                      {/* Dropdown Results */}
-                      {isCoachDropdownOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-40 overflow-y-auto">
-                          {coaches
-                            .filter(c => !selectedCoachIds.includes(c.id))
-                            .filter(c => `${c.voornaam} ${c.achternaam}`.toLowerCase().includes(coachSearch.toLowerCase()))
-                            .map(c => (
-                              <button key={c.id} type="button" onClick={() => toggleCoach(c.id)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0">
-                                {c.voornaam} {c.achternaam}
-                              </button>
-                            ))}
+              {currentSection.fields.map((field, idx) => {
+                if (field.isRow) {
+                  return (
+                    <div key={idx} className="grid grid-cols-2 gap-4">
+                      {field.fields.map(subField => (
+                        <div key={subField.name}>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{subField.label}</label>
+                          {RenderInputField(subField)}
                         </div>
-                      )}
-                    </div>
-                  ) : field.type === 'select' ? (
-                    <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm">
-                      <option value="">Kies...</option>
-                      {field.options.map(opt => (
-                        <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
-                          {typeof opt === 'string' ? opt : opt.label}
-                        </option>
                       ))}
-                    </select>
-                  ) : (
-                    <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" />
-                  )}
-                </div>
-              ))}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={field.name || idx}>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                    {RenderInputField(field)}
+                  </div>
+                );
+              })}
               <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all mt-4">
                 {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen'}
               </button>
