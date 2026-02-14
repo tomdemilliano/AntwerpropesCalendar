@@ -3,11 +3,7 @@ import { db } from './firebase';
 import { 
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc, where, getDocs, writeBatch
 } from 'firebase/firestore';
-import { 
-  handleBulkSchedule, 
-  handleDeleteAllPlannedForSeason, 
-  handleDeleteVasteTraining 
-} from './firebaseUtils';
+import { handleBulkSchedule, handleDeleteAllPlannedForSeason, handleDeleteVasteTraining } from './firebaseUtils';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
   Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX, PlusCircle
@@ -17,7 +13,6 @@ import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
-import { handleBulkSchedule, handleDeleteAllPlannedForSeason, handleDeleteVasteTraining } from './firebaseUtils';
 
 const App = () => {
   // --- UI STATE ---
