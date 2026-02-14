@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2
 } from 'lucide-react';
 
 const App = () => {
@@ -59,7 +59,6 @@ const App = () => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setSeizoenen(data);
       
-      // Standaard seizoen zetten op basis van huidige datum
       const today = new Date().toISOString().split('T')[0];
       const huidigSeizoen = data.find(s => today >= s.startDatum && today <= s.eindDatum);
       if (huidigSeizoen && !activeSeasonId) {
@@ -88,17 +87,23 @@ const App = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter groepen en vaste trainingen op basis van het geselecteerde seizoen in beheer
   const filteredGroepen = useMemo(() => {
     const seizoenNaam = seizoenen.find(s => s.id === activeSeasonId)?.naam;
     return groepen.filter(g => g.seizoen === seizoenNaam);
   }, [groepen, seizoenen, activeSeasonId]);
 
   const filteredVasteTrainingen = useMemo(() => {
-    // We tonen alleen vaste trainingen waarvan de groep behoort tot het actieve seizoen
     const groepIdsInSeizoen = filteredGroepen.map(g => g.id);
     return vasteTrainingen.filter(v => groepIdsInSeizoen.includes(v.groepId));
   }, [vasteTrainingen, filteredGroepen]);
+
+  // Hulpmiddel om te checken of een vaste training is ingepland
+  const isIngepland = (vaste) => {
+    return trainingen.some(t => 
+      t.groepId === vaste.groepId && 
+      t.uren === `${vaste.startUur}-${vaste.eindUur}`
+    );
+  };
 
   const sections = {
     groepen: {
@@ -152,16 +157,17 @@ const App = () => {
       title: 'Wekelijkse Trainingen',
       collection: 'vasteTrainingen',
       icon: <Clock size={18} />,
-      data: filteredVasteTrainingen, // Gebruik gefilterde data
+      data: filteredVasteTrainingen,
       fields: [
         { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
-        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
         { isRow: true, fields: [
+          { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
           { name: 'startUur', label: 'Start', type: 'time' },
           { name: 'eindUur', label: 'Einde', type: 'time' }
         ]},
         { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
-        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) }
+        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+        { name: 'ingepland', label: 'Ingepland', type: 'status' }
       ]
     }
   };
@@ -175,7 +181,6 @@ const App = () => {
     
     if (currentSection.collection === 'vasteTrainingen') {
       data.coachIds = selectedCoachIds;
-      // We voegen het seizoenId toe aan de training als referentie (optioneel, filtering gebeurt nu via groep)
       data.seizoenId = activeSeasonId; 
     }
 
@@ -243,6 +248,40 @@ const App = () => {
     alert("Trainingsmomenten succesvol ingepland!");
   };
 
+  const handleDeleteVasteTraining = async (item) => {
+    const isScheduled = isIngepland(item);
+    
+    if (isScheduled) {
+      const confirmDelete = window.confirm(
+        "Er zijn reeds trainingen ingepland in de kalender voor dit wekelijkse moment.\n\n" +
+        "Wilt u dit wekelijkse moment én alle bijbehorende trainingen uit de kalender verwijderen?"
+      );
+      
+      if (confirmDelete) {
+        const batch = writeBatch(db);
+        
+        // Verwijder alle gekoppelde planning-items
+        const relevantTrainingen = trainingen.filter(t => 
+          t.groepId === item.groepId && t.uren === `${item.startUur}-${item.eindUur}`
+        );
+        
+        relevantTrainingen.forEach(t => {
+          batch.delete(doc(db, "planning", t.id));
+        });
+        
+        // Verwijder de vaste training zelf
+        batch.delete(doc(db, "vasteTrainingen", item.id));
+        
+        await batch.commit();
+        alert("Wekelijks moment en alle ingeplande trainingen zijn verwijderd.");
+      }
+    } else {
+      if(window.confirm("Weet u zeker dat u dit wekelijkse moment wilt verwijderen?")) {
+        await deleteDoc(doc(db, "vasteTrainingen", item.id));
+      }
+    }
+  };
+
   const openEditModal = (item) => {
     setEditingItem(item);
     if (adminSection === 'vasteTrainingen') {
@@ -266,6 +305,15 @@ const App = () => {
       return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
     }
     if (field.type === 'number' && field.name === 'uurtarief') return `€ ${value}`;
+    if (field.type === 'status') {
+      return isIngepland(item) ? (
+        <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] uppercase">
+          <CheckCircle2 size={14}/> Ja
+        </span>
+      ) : (
+        <span className="text-slate-300 font-bold text-[10px] uppercase">Nee</span>
+      );
+    }
     return value;
   };
 
@@ -443,7 +491,12 @@ const App = () => {
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                               <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
-                              <button onClick={async () => { if(window.confirm("Verwijderen?")) await deleteDoc(doc(db, currentSection.collection, item.id)); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                              <button 
+                                onClick={() => adminSection === 'vasteTrainingen' ? handleDeleteVasteTraining(item) : (window.confirm("Verwijderen?") && deleteDoc(doc(db, currentSection.collection, item.id)))} 
+                                className="p-1.5 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 size={14}/>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -487,7 +540,6 @@ const App = () => {
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Momenten om te genereren</label>
                 <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-slate-50 rounded-xl p-2">
-                  {/* Toon hier alle vaste trainingen van het gekozen seizoen in de bulk modal */}
                   {vasteTrainingen
                     .filter(v => {
                       const selSeason = seizoenen.find(s => s.id === (selectedSeasonId || activeSeasonId));
@@ -534,10 +586,10 @@ const App = () => {
               <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
             <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {currentSection.fields.map((field, idx) => {
+              {currentSection.fields.filter(f => f.type !== 'status').map((field, idx) => {
                 if (field.isRow) {
                   return (
-                    <div key={idx} className="grid grid-cols-2 gap-4">
+                    <div key={idx} className={`grid ${field.fields.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
                       {field.fields.map(subField => (
                         <div key={subField.name}>
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{subField.label}</label>
