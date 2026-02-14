@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import AdminModal from './components/AdminModal';
+import BulkScheduleModal from './components/BulkScheduleModal';
+import TrainingModal from './components/TrainingModal';
+import { handleBulkSchedule, handleDeleteAllPlannedForSeason, handleDeleteVasteTraining } from './firebaseUtils';
 
 const App = () => {
   // --- UI STATE ---
@@ -606,149 +610,48 @@ const App = () => {
       </main>
 
       {/* MODAL: BULK INPLANNEN */}
-      {showBulkScheduleModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="text-lg font-black text-slate-800">Trainingsmomenten inplannen</h2>
-              <button onClick={() => setShowBulkScheduleModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
-            </div>
-            <form onSubmit={async (e) => {e.preventDefault();
-              await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen);
-              setShowBulkScheduleModal(false);
-              setSelectedVasteIds([]);
-              }} className="p-6 space-y-6">
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Seizoen</label>
-                <select 
-                  required 
-                  className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none" 
-                  value={selectedSeasonId || activeSeasonId}
-                  onChange={e => setSelectedSeasonId(e.target.value)}
-                >
-                  <option value="">Selecteer seizoen...</option>
-                  {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam} ({s.startTrainingen || s.startDatum} tot {s.eindTrainingen || s.eindDatum})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Momenten om te genereren</label>
-                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-slate-50 rounded-xl p-2">
-                  {vasteTrainingen
-                    .filter(v => {
-                      const selSeason = seizoenen.find(s => s.id === (selectedSeasonId || activeSeasonId));
-                      const groep = groepen.find(g => g.id === v.groepId);
-                      return groep?.seizoen === selSeason?.naam;
-                    })
-                    .map(v => (
-                    <label key={v.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="rounded text-indigo-600"
-                        checked={selectedVasteIds.includes(v.id)}
-                        onChange={(e) => {
-                          if(e.target.checked) setSelectedVasteIds([...selectedVasteIds, v.id]);
-                          else setSelectedVasteIds(selectedVasteIds.filter(id => id !== v.id));
-                        }}
-                      />
-                      <span className="text-sm font-medium">
-                        {groepen.find(g => g.id === v.groepId)?.naam} - {v.dag} ({v.startUur}-{v.eindUur})
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                  <strong>Let op:</strong> Deze actie zal alle eerder ingeplande trainingen voor de geselecteerde groepen op die specifieke weekdagen <strong>tussen de trainingsdatums</strong> van het seizoen overschrijven.
-                </p>
-              </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
-                Bevestig en Plan in
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <BulkScheduleModal 
+        show={showBulkScheduleModal}
+        onClose={() => setShowBulkScheduleModal(false)}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen);
+          setShowBulkScheduleModal(false);
+          setSelectedVasteIds([]);
+        }}
+        seizoenen={seizoenen}
+        selectedSeasonId={selectedSeasonId}
+        setSelectedSeasonId={setSelectedSeasonId}
+        activeSeasonId={activeSeasonId}
+        vasteTrainingen={vasteTrainingen}
+        selectedVasteIds={selectedVasteIds}
+        setSelectedVasteIds={setSelectedVasteIds}
+      />
 
       {/* MODAL: ADMIN EDIT/ADD */}
-      {showAdminModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="text-lg font-black text-slate-800">
-                {editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie toevoegen' : 'Zaal onbeschikbaar toevoegen') : 'Nieuw Item')}
-              </h2>
-              <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {currentSection.fields.filter(f => f.type !== 'status').map((field, idx) => {
-                if (field.isRow) {
-                  return (
-                    <div key={idx} className={`grid ${field.fields.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
-                      {field.fields.map(subField => (
-                        <div key={subField.name}>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{subField.label}</label>
-                          {RenderInputField(subField)}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-                return (
-                  <div key={field.name || idx}>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                    {RenderInputField(field)}
-                  </div>
-                );
-              })}
-
-              {adminSection === 'seizoenen' && editingItem && (
-                <div className="pt-4 mt-4 border-t border-slate-50">
-                   <button 
-                    type="button"
-                    onClick={async () => {await handleDeleteAllPlannedForSeason(editingItem); setShowAdminModal(false);}}
-                    className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold text-sm border border-red-100 flex items-center justify-center gap-2 hover:bg-red-100 transition-all"
-                  >
-                    <AlertTriangle size={16}/> Verwijder alle ingeplande momenten
-                  </button>
-                </div>
-              )}
-
-              <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all mt-4">
-                {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <AdminModal 
+        show={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        title={editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie toevoegen' : 'Zaal onbeschikbaar toevoegen') : 'Nieuw Item')}
+        onSubmit={handleSaveAdminItem}
+        editingItem={editingItem}
+        fields={currentSection.fields}
+        renderInputField={RenderInputField}
+        handleDeleteAllPlanned={handleDeleteAllPlannedForSeason}
+        adminSection={adminSection}
+      />
 
       {/* MODAL: KALENDER PLANNING */}
-      {showTrainingModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
-            <div className="p-6 border-b flex justify-between items-center"><h2 className="text-xl font-black">Planning</h2><button onClick={() => setShowTrainingModal(false)}><X /></button></div>
-            <form onSubmit={async (e) => { e.preventDefault(); await addDoc(collection(db, "planning"), newTraining); setShowTrainingModal(false); }} className="p-6 space-y-4">
-              <input type="date" required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, datum: e.target.value})} />
-              <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, groepId: e.target.value})}>
-                <option value="">Kies groep...</option>
-                {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
-              </select>
-              <div className="grid grid-cols-2 gap-4">
-                <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, coachId: e.target.value})}>
-                  <option value="">Coach...</option>
-                  {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.achternaam}</option>)}
-                </select>
-                <input type="text" placeholder="bv. 14u-16u" className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, uren: e.target.value})} />
-              </div>
-              <select required className="w-full p-3 bg-slate-50 border rounded-xl" onChange={e => setNewTraining({...newTraining, locatieId: e.target.value})}>
-                <option value="">Locatie...</option>
-                {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
-              </select>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100">Opslaan</button>
-            </form>
-          </div>
-        </div>
-      )}
+      <TrainingModal 
+        show={showTrainingModal}
+        onClose={() => setShowTrainingModal(false)}
+        onSubmit={handleAddTraining}
+        newTraining={newTraining}
+        setNewTraining={setNewTraining}
+        groepen={groepen}
+        coaches={coaches}
+        locaties={locaties}
+      />
     </div>
   );
 };
