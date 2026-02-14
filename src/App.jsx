@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2
 } from 'lucide-react';
 
 const App = () => {
@@ -38,6 +38,7 @@ const App = () => {
   const [locaties, setLocaties] = useState([]);
   const [seizoenen, setSeizoenen] = useState([]);
   const [vasteTrainingen, setVasteTrainingen] = useState([]);
+  const [beschikbareZalen, setBeschikbareZalen] = useState([]);
 
   // --- FORM STATE ---
   const [newTraining, setNewTraining] = useState({ datum: '', groepId: '', coachId: '', locatieId: '', uren: '' });
@@ -70,10 +71,13 @@ const App = () => {
     const unsubVasteTrainingen = onSnapshot(collection(db, "vasteTrainingen"), (snapshot) => {
       setVasteTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+    const unsubBeschikbareZalen = onSnapshot(collection(db, "beschikbareZalen"), (snapshot) => {
+      setBeschikbareZalen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
     return () => { 
       unsubTrainingen(); unsubGroepen(); unsubCoaches(); 
-      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); 
+      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen();
     };
   }, [activeSeasonId]);
 
@@ -90,7 +94,6 @@ const App = () => {
   const filteredGroepen = useMemo(() => {
     const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
     if (!actueelSeizoen) return [];
-    // Filter groepen op de naam van het actieve seizoen of op seizoenId als je dat later zou aanpassen
     return groepen.filter(g => g.seizoen === actueelSeizoen.naam || g.seizoenId === actueelSeizoen.id);
   }, [groepen, seizoenen, activeSeasonId]);
 
@@ -98,6 +101,10 @@ const App = () => {
     const groepIdsInSeizoen = filteredGroepen.map(g => g.id);
     return vasteTrainingen.filter(v => groepIdsInSeizoen.includes(v.groepId));
   }, [vasteTrainingen, filteredGroepen]);
+
+  const filteredBeschikbareZalen = useMemo(() => {
+    return beschikbareZalen.filter(z => z.seizoenId === activeSeasonId);
+  }, [beschikbareZalen, activeSeasonId]);
 
   const isIngepland = (vaste) => {
     return trainingen.some(t => 
@@ -111,12 +118,12 @@ const App = () => {
       title: 'Trainingsgroepen',
       collection: 'groepen',
       icon: <Users size={18} />,
-      data: filteredGroepen, // Aangepast naar gefilterde data
+      data: filteredGroepen,
       fields: [
         { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
         { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
         { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
-        { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' } // Nieuwe toevoeging
+        { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
       ]
     },
     coaches: {
@@ -141,6 +148,22 @@ const App = () => {
         { name: 'huisnummer', label: 'Nr.', type: 'text' },
         { name: 'gemeente', label: 'Gemeente', type: 'text' },
         { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
+      ]
+    },
+    beschikbareZalen: {
+      title: 'Beschikbare zalen',
+      collection: 'beschikbareZalen',
+      icon: <Building2 size={18} />,
+      data: filteredBeschikbareZalen,
+      fields: [
+        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+        { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+        { isRow: true, fields: [
+          { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
+          { name: 'startUur', label: 'Beginuur', type: 'time' },
+          { name: 'eindUur', label: 'Einduur', type: 'time' }
+        ]},
+        { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
       ]
     },
     seizoenen: {
@@ -186,7 +209,6 @@ const App = () => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     
-    // Specifieke logica voor groepen en vaste trainingen
     if (currentSection.collection === 'vasteTrainingen') {
       data.coachIds = selectedCoachIds;
       data.seizoenId = activeSeasonId; 
@@ -196,6 +218,10 @@ const App = () => {
       data.coachIds = selectedCoachIds;
       const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
       data.seizoen = actueelSeizoen?.naam || '';
+      data.seizoenId = activeSeasonId;
+    }
+
+    if (currentSection.collection === 'beschikbareZalen') {
       data.seizoenId = activeSeasonId;
     }
 
@@ -348,7 +374,7 @@ const App = () => {
     if (field.name === 'coachIds' && Array.isArray(value)) {
       return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
     }
-    if (field.type === 'number' && field.name === 'uurtarief') return `€ ${value}`;
+    if (field.type === 'number' && (field.name === 'uurtarief' || field.name === 'huurprijs')) return `€ ${value}`;
     if (field.type === 'status') {
       return isIngepland(item) ? (
         <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] uppercase">
@@ -487,8 +513,7 @@ const App = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
-                  {/* Seizoensfilter nu ook zichtbaar bij groepen */}
-                  {(adminSection === 'vasteTrainingen' || adminSection === 'groepen') && (
+                  {(adminSection === 'vasteTrainingen' || adminSection === 'groepen' || adminSection === 'beschikbareZalen') && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                       <Filter size={14} className="text-indigo-600" />
                       <span>Actief seizoen:</span>
