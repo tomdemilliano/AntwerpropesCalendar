@@ -88,8 +88,10 @@ const App = () => {
   }, []);
 
   const filteredGroepen = useMemo(() => {
-    const seizoenNaam = seizoenen.find(s => s.id === activeSeasonId)?.naam;
-    return groepen.filter(g => g.seizoen === seizoenNaam);
+    const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
+    if (!actueelSeizoen) return [];
+    // Filter groepen op de naam van het actieve seizoen of op seizoenId als je dat later zou aanpassen
+    return groepen.filter(g => g.seizoen === actueelSeizoen.naam || g.seizoenId === actueelSeizoen.id);
   }, [groepen, seizoenen, activeSeasonId]);
 
   const filteredVasteTrainingen = useMemo(() => {
@@ -97,7 +99,6 @@ const App = () => {
     return vasteTrainingen.filter(v => groepIdsInSeizoen.includes(v.groepId));
   }, [vasteTrainingen, filteredGroepen]);
 
-  // Hulpmiddel om te checken of een vaste training is ingepland
   const isIngepland = (vaste) => {
     return trainingen.some(t => 
       t.groepId === vaste.groepId && 
@@ -110,12 +111,12 @@ const App = () => {
       title: 'Trainingsgroepen',
       collection: 'groepen',
       icon: <Users size={18} />,
-      data: groepen,
+      data: filteredGroepen, // Aangepast naar gefilterde data
       fields: [
         { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
         { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
         { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
-        { name: 'seizoen', label: 'Seizoen', type: 'text', placeholder: '2025-2026' }
+        { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' } // Nieuwe toevoeging
       ]
     },
     coaches: {
@@ -185,9 +186,17 @@ const App = () => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     
+    // Specifieke logica voor groepen en vaste trainingen
     if (currentSection.collection === 'vasteTrainingen') {
       data.coachIds = selectedCoachIds;
       data.seizoenId = activeSeasonId; 
+    }
+
+    if (currentSection.collection === 'groepen') {
+      data.coachIds = selectedCoachIds;
+      const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
+      data.seizoen = actueelSeizoen?.naam || '';
+      data.seizoenId = activeSeasonId;
     }
 
     if (editingItem) {
@@ -206,9 +215,6 @@ const App = () => {
     if (!seasonIdToUse || selectedVasteIds.length === 0) return;
 
     const seizoen = seizoenen.find(s => s.id === seasonIdToUse);
-    
-    // AANPASSING: Gebruik specifiek startTrainingen en eindTrainingen
-    // Indien deze niet ingevuld zijn, vallen we terug op de algemene seizoensdatums
     const trainingStartStr = seizoen.startTrainingen || seizoen.startDatum;
     const trainingEindStr = seizoen.eindTrainingen || seizoen.eindDatum;
 
@@ -221,7 +227,6 @@ const App = () => {
     const eind = new Date(trainingEindStr);
     const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
-    // Query bestaande items enkel binnen de trainingsperiode voor opschonen
     const q = query(
       collection(db, "planning"), 
       where("datum", ">=", trainingStartStr),
@@ -235,7 +240,6 @@ const App = () => {
       const vaste = vasteTrainingen.find(v => v.id === vasteId);
       const targetDag = dagIndexen[vaste.dag];
 
-      // Verwijder enkel als het om dezelfde groep gaat op die dag binnen de periode
       existingDocs.forEach(docSnap => {
         const data = docSnap.data();
         const d = new Date(data.datum);
@@ -305,17 +309,13 @@ const App = () => {
       
       if (confirmDelete) {
         const batch = writeBatch(db);
-        
         const relevantTrainingen = trainingen.filter(t => 
           t.groepId === item.groepId && t.uren === `${item.startUur}-${item.eindUur}`
         );
-        
         relevantTrainingen.forEach(t => {
           batch.delete(doc(db, "planning", t.id));
         });
-        
         batch.delete(doc(db, "vasteTrainingen", item.id));
-        
         await batch.commit();
         alert("Wekelijks moment en alle ingeplande trainingen zijn verwijderd.");
       }
@@ -328,7 +328,7 @@ const App = () => {
 
   const openEditModal = (item) => {
     setEditingItem(item);
-    if (adminSection === 'vasteTrainingen') {
+    if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') {
       setSelectedCoachIds(item.coachIds || []);
     }
     setShowAdminModal(true);
@@ -487,7 +487,8 @@ const App = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
-                  {adminSection === 'vasteTrainingen' && (
+                  {/* Seizoensfilter nu ook zichtbaar bij groepen */}
+                  {(adminSection === 'vasteTrainingen' || adminSection === 'groepen') && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                       <Filter size={14} className="text-indigo-600" />
                       <span>Actief seizoen:</span>
@@ -651,7 +652,6 @@ const App = () => {
                 );
               })}
 
-              {/* EXTRA KNOP VOOR SEIZOENEN BEWERKEN */}
               {adminSection === 'seizoenen' && editingItem && (
                 <div className="pt-4 mt-4 border-t border-slate-50">
                    <button 
