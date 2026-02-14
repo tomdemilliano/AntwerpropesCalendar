@@ -581,7 +581,7 @@ const App = () => {
                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                               <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
                               <button 
-                                onClick={() => adminSection === 'vasteTrainingen' ? handleDeleteVasteTraining(item) : (window.confirm("Verwijderen?") && deleteDoc(doc(db, currentSection.collection, item.id)))} 
+                                onClick={() => adminSection === 'vasteTrainingen'? handleDeleteVasteTraining(item, trainingen, isIngepland) : (window.confirm("Verwijderen?") && deleteDoc(doc(db, currentSection.collection, item.id)))}
                                 className="p-1.5 text-slate-400 hover:text-red-600"
                               >
                                 <Trash2 size={14}/>
@@ -613,7 +613,11 @@ const App = () => {
               <h2 className="text-lg font-black text-slate-800">Trainingsmomenten inplannen</h2>
               <button onClick={() => setShowBulkScheduleModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleBulkSchedule} className="p-6 space-y-6">
+            <form onSubmit={async (e) => {e.preventDefault();
+              await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen);
+              setShowBulkScheduleModal(false);
+              setSelectedVasteIds([]);
+              }} className="p-6 space-y-6">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Seizoen</label>
                 <select 
@@ -702,7 +706,7 @@ const App = () => {
                 <div className="pt-4 mt-4 border-t border-slate-50">
                    <button 
                     type="button"
-                    onClick={() => handleDeleteAllPlannedForSeason(editingItem)}
+                    onClick={async () => {await handleDeleteAllPlannedForSeason(editingItem); setShowAdminModal(false);}}
                     className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold text-sm border border-red-100 flex items-center justify-center gap-2 hover:bg-red-100 transition-all"
                   >
                     <AlertTriangle size={16}/> Verwijder alle ingeplande momenten
