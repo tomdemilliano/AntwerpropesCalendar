@@ -31,6 +31,9 @@ const App = () => {
   const [isCoachDropdownOpen, setIsCoachDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // --- FORM STATE VOOR DYNAMISCHE FILTERING ---
+  const [tempVasteTraining, setTempVasteTraining] = useState({ dag: '', startUur: '', eindUur: '' });
+
   // --- DATA STATE ---
   const [trainingen, setTrainingen] = useState([]);
   const [groepen, setGroepen] = useState([]);
@@ -39,9 +42,6 @@ const App = () => {
   const [seizoenen, setSeizoenen] = useState([]);
   const [vasteTrainingen, setVasteTrainingen] = useState([]);
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
-
-  // --- FORM STATE ---
-  const [newTraining, setNewTraining] = useState({ datum: '', groepId: '', coachId: '', locatieId: '', uren: '' });
 
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
@@ -105,6 +105,26 @@ const App = () => {
   const filteredBeschikbareZalen = useMemo(() => {
     return beschikbareZalen.filter(z => z.seizoenId === activeSeasonId);
   }, [beschikbareZalen, activeSeasonId]);
+
+  // Helper om te checken of een tijdstip valt binnen een zaalbeschikbaarheid
+  const getBeschikbareLocatieOpties = () => {
+    const { dag, startUur, eindUur } = tempVasteTraining;
+    if (!dag || !startUur || !eindUur) return [];
+
+    return filteredBeschikbareZalen
+      .filter(zaal => {
+        return zaal.dag === dag && 
+               zaal.startUur <= startUur && 
+               zaal.eindUur >= eindUur;
+      })
+      .map(zaal => {
+        const locNaam = locaties.find(l => l.id === zaal.locatieId)?.naam || 'Onbekend';
+        return { 
+          value: zaal.locatieId, 
+          label: `${locNaam} (${zaal.zaaldelen})` 
+        };
+      });
+  };
 
   const isIngepland = (vaste) => {
     return trainingen.some(t => 
@@ -196,7 +216,7 @@ const App = () => {
           { name: 'eindUur', label: 'Einde', type: 'time' }
         ]},
         { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
-        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+        { name: 'locatieId', label: 'Locatie', type: 'select', isDynamic: true, options: [] }, // Options worden dynamisch bepaald in RenderInputField
         { name: 'ingepland', label: 'Ingepland', type: 'status' }
       ]
     }
@@ -233,6 +253,7 @@ const App = () => {
     setShowAdminModal(false);
     setEditingItem(null);
     setSelectedCoachIds([]);
+    setTempVasteTraining({ dag: '', startUur: '', eindUur: '' });
   };
 
   const handleBulkSchedule = async (e) => {
@@ -357,6 +378,13 @@ const App = () => {
     if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') {
       setSelectedCoachIds(item.coachIds || []);
     }
+    if (adminSection === 'vasteTrainingen') {
+      setTempVasteTraining({ 
+        dag: item.dag || '', 
+        startUur: item.startUur || '', 
+        eindUur: item.eindUur || '' 
+      });
+    }
     setShowAdminModal(true);
   };
 
@@ -434,10 +462,22 @@ const App = () => {
     }
     
     if (field.type === 'select') {
+      let options = field.options;
+      
+      // Specifieke logica voor wekelijkse trainingen locatie keuze
+      if (adminSection === 'vasteTrainingen' && field.name === 'locatieId') {
+        options = getBeschikbareLocatieOpties();
+      }
+
       return (
-        <select name={field.name} required defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm">
-          <option value="">Kies...</option>
-          {field.options.map(opt => (
+        <select 
+          name={field.name} 
+          required 
+          defaultValue={editingItem ? editingItem[field.name] : ''} 
+          className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
+        >
+          <option value="">{options.length === 0 && adminSection === 'vasteTrainingen' && field.name === 'locatieId' ? 'Eerst dag/uren invullen...' : 'Kies...'}</option>
+          {options.map(opt => (
             <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
               {typeof opt === 'string' ? opt : opt.label}
             </option>
@@ -447,7 +487,19 @@ const App = () => {
     }
 
     return (
-      <input name={field.name} type={field.type} required defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" />
+      <input 
+        name={field.name} 
+        type={field.type} 
+        required 
+        defaultValue={editingItem ? editingItem[field.name] : ''} 
+        placeholder={field.placeholder} 
+        className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
+        onChange={(e) => {
+          if (adminSection === 'vasteTrainingen' && ['dag', 'startUur', 'eindUur'].includes(field.name)) {
+            setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
+          }
+        }}
+      />
     );
   };
 
@@ -503,7 +555,7 @@ const App = () => {
             <aside className="w-64 border-r border-slate-100 p-4 flex flex-col gap-1 bg-slate-50/50">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-4">Database</p>
               {Object.entries(sections).map(([key, sec]) => (
-                <button key={key} onClick={() => { setAdminSection(key); setSelectedCoachIds([]); }} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${adminSection === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                <button key={key} onClick={() => { setAdminSection(key); setSelectedCoachIds([]); setTempVasteTraining({dag:'', startUur:'', eindUur:''}); }} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${adminSection === key ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
                   {sec.icon} {sec.title}
                 </button>
               ))}
@@ -533,7 +585,7 @@ const App = () => {
                       <CalendarCheck size={16}/> Trainingsmomenten inplannen
                     </button>
                   )}
-                  <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
+                  <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setTempVasteTraining({dag:'', startUur:'', eindUur:''}); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
                     <Plus size={16}/> Toevoegen
                   </button>
                 </div>
