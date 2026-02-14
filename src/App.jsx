@@ -202,21 +202,30 @@ const App = () => {
 
   const handleBulkSchedule = async (e) => {
     e.preventDefault();
-    if (!selectedSeasonId || selectedVasteIds.length === 0) return;
+    const seasonIdToUse = selectedSeasonId || activeSeasonId;
+    if (!seasonIdToUse || selectedVasteIds.length === 0) return;
 
-    const seizoen = seizoenen.find(s => s.id === selectedSeasonId);
-    // Gebruik de trainingsdatums indien ingevuld, anders de seizoensdatums
-    const startStr = seizoen.startTrainingen || seizoen.startDatum;
-    const eindStr = seizoen.eindTrainingen || seizoen.eindDatum;
+    const seizoen = seizoenen.find(s => s.id === seasonIdToUse);
     
-    const start = new Date(startStr);
-    const eind = new Date(eindStr);
+    // AANPASSING: Gebruik specifiek startTrainingen en eindTrainingen
+    // Indien deze niet ingevuld zijn, vallen we terug op de algemene seizoensdatums
+    const trainingStartStr = seizoen.startTrainingen || seizoen.startDatum;
+    const trainingEindStr = seizoen.eindTrainingen || seizoen.eindDatum;
+
+    if (!trainingStartStr || !trainingEindStr) {
+      alert("Zorg dat de start- en einddatum van de trainingen zijn ingevuld voor dit seizoen.");
+      return;
+    }
+
+    const start = new Date(trainingStartStr);
+    const eind = new Date(trainingEindStr);
     const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
+    // Query bestaande items enkel binnen de trainingsperiode voor opschonen
     const q = query(
       collection(db, "planning"), 
-      where("datum", ">=", startStr),
-      where("datum", "<=", eindStr)
+      where("datum", ">=", trainingStartStr),
+      where("datum", "<=", trainingEindStr)
     );
     const existingDocs = await getDocs(q);
     
@@ -226,6 +235,7 @@ const App = () => {
       const vaste = vasteTrainingen.find(v => v.id === vasteId);
       const targetDag = dagIndexen[vaste.dag];
 
+      // Verwijder enkel als het om dezelfde groep gaat op die dag binnen de periode
       existingDocs.forEach(docSnap => {
         const data = docSnap.data();
         const d = new Date(data.datum);
@@ -255,7 +265,7 @@ const App = () => {
     await batch.commit();
     setShowBulkScheduleModal(false);
     setSelectedVasteIds([]);
-    alert("Trainingsmomenten succesvol ingepland!");
+    alert(`Trainingsmomenten succesvol ingepland tussen ${trainingStartStr} en ${trainingEindStr}!`);
   };
 
   const handleDeleteAllPlannedForSeason = async (seizoen) => {
@@ -568,7 +578,7 @@ const App = () => {
                   onChange={e => setSelectedSeasonId(e.target.value)}
                 >
                   <option value="">Selecteer seizoen...</option>
-                  {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam} ({s.startDatum} tot {s.eindDatum})</option>)}
+                  {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam} ({s.startTrainingen || s.startDatum} tot {s.eindTrainingen || s.eindDatum})</option>)}
                 </select>
               </div>
               <div>
@@ -600,7 +610,7 @@ const App = () => {
               </div>
               <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
                 <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                  <strong>Let op:</strong> Deze actie zal alle eerder ingeplande trainingen voor de geselecteerde groepen op die specifieke weekdagen binnen het seizoen overschrijven.
+                  <strong>Let op:</strong> Deze actie zal alle eerder ingeplande trainingen voor de geselecteerde groepen op die specifieke weekdagen <strong>tussen de trainingsdatums</strong> van het seizoen overschrijven.
                 </p>
               </div>
               <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
