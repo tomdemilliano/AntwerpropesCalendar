@@ -5,20 +5,23 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX, PlusCircle
 } from 'lucide-react';
 
 const App = () => {
   // --- UI STATE ---
   const [activeTab, setActiveTab] = useState('kalender'); 
   const [adminSection, setAdminSection] = useState('groepen');
-  const [zaalTab, setZaalTab] = useState('weekplanning'); // Nieuw: switch tussen weekplanning en uitzonderingen
+  const [zaalTab, setZaalTab] = useState('weekplanning'); 
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // State voor het type uitzondering bij toevoegen
+  const [uitzonderingType, setUitzonderingType] = useState('onbeschikbaar');
+
   // State voor Seizoen Selectie in Beheer
   const [activeSeasonId, setActiveSeasonId] = useState('');
 
@@ -43,7 +46,7 @@ const App = () => {
   const [seizoenen, setSeizoenen] = useState([]);
   const [vasteTrainingen, setVasteTrainingen] = useState([]);
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
-  const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]); // Nieuw
+  const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]);
 
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
@@ -115,7 +118,6 @@ const App = () => {
     return zaalUitzonderingen.filter(u => u.seizoenId === activeSeasonId);
   }, [zaalUitzonderingen, activeSeasonId]);
 
-  // Helper om te checken of een tijdstip valt binnen een zaalbeschikbaarheid
   const getBeschikbareLocatieOpties = () => {
     const { dag, startUur, eindUur } = tempVasteTraining;
     if (!dag || !startUur || !eindUur) return [];
@@ -193,15 +195,24 @@ const App = () => {
           { name: 'eindUur', label: 'Einduur', type: 'time' }
         ]},
         { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-      ] : [
+      ] : (uitzonderingType === 'onbeschikbaar' ? [
         { name: 'datum', label: 'Datum', type: 'date' },
-        { name: 'zaalId', label: 'Betreffende Zaalplanning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ 
+        { name: 'zaalId', label: 'Betreffende Vaste Planning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ 
             value: z.id, 
             label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` 
           })) 
         },
         { name: 'reden', label: 'Reden van onbeschikbaarheid', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' }
-      ]
+      ] : [
+        { name: 'datum', label: 'Datum', type: 'date' },
+        { isRow: true, fields: [
+          { name: 'startUur', label: 'Beginuur', type: 'time' },
+          { name: 'eindUur', label: 'Einduur', type: 'time' }
+        ]},
+        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+        { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+        { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+      ])
     },
     seizoenen: {
       title: 'Seizoenen',
@@ -258,8 +269,15 @@ const App = () => {
       data.seizoenId = activeSeasonId;
     }
 
-    if (currentSection.collection === 'beschikbareZalen' || currentSection.collection === 'zaalUitzonderingen') {
+    if (currentSection.collection === 'beschikbareZalen') {
       data.seizoenId = activeSeasonId;
+    }
+
+    if (currentSection.collection === 'zaalUitzonderingen') {
+      data.seizoenId = activeSeasonId;
+      if (!editingItem) {
+        data.type = uitzonderingType;
+      }
     }
 
     if (editingItem) {
@@ -402,6 +420,9 @@ const App = () => {
         eindUur: item.eindUur || '' 
       });
     }
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
+      setUitzonderingType(item.type || 'onbeschikbaar');
+    }
     setShowAdminModal(true);
   };
 
@@ -433,6 +454,10 @@ const App = () => {
       ) : (
         <span className="text-slate-300 font-bold text-[10px] uppercase">Nee</span>
       );
+    }
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
+      const prefix = item.type === 'extra' ? '➕ ' : '🚫 ';
+      return <span>{prefix} {value}</span>;
     }
     return value;
   };
@@ -618,9 +643,20 @@ const App = () => {
                       <CalendarCheck size={16}/> Trainingsmomenten inplannen
                     </button>
                   )}
-                  <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setTempVasteTraining({dag:'', startUur:'', eindUur:''}); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
-                    <Plus size={16}/> Toevoegen
-                  </button>
+                  {adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (
+                    <>
+                      <button onClick={() => { setEditingItem(null); setUitzonderingType('extra'); setShowAdminModal(true); }} className="bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-emerald-700 transition text-sm font-bold">
+                        <PlusCircle size={16}/> Extra reservatie
+                      </button>
+                      <button onClick={() => { setEditingItem(null); setUitzonderingType('onbeschikbaar'); setShowAdminModal(true); }} className="bg-red-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-700 transition text-sm font-bold">
+                        <CalendarX size={16}/> Zaal onbeschikbaar
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setTempVasteTraining({dag:'', startUur:'', eindUur:''}); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold">
+                      <Plus size={16}/> Toevoegen
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -631,7 +667,7 @@ const App = () => {
                     onClick={() => setZaalTab('weekplanning')}
                     className={`pb-2 px-4 text-sm font-bold transition-all ${zaalTab === 'weekplanning' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}
                   >
-                    Weekplanning
+                    Vaste planning
                   </button>
                   <button 
                     onClick={() => setZaalTab('uitzonderingen')}
@@ -755,7 +791,9 @@ const App = () => {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="text-lg font-black text-slate-800">{editingItem ? 'Bewerken' : 'Nieuw Item'}</h2>
+              <h2 className="text-lg font-black text-slate-800">
+                {editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie toevoegen' : 'Zaal onbeschikbaar toevoegen') : 'Nieuw Item')}
+              </h2>
               <button onClick={() => setShowAdminModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
             <form onSubmit={handleSaveAdminItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
