@@ -473,7 +473,10 @@ const App = () => {
         <select 
           name={field.name} 
           required 
-          defaultValue={editingItem ? editingItem[field.name] : ''} 
+          value={editingItem ? (editingItem[field.name] || '') : (field.defaultValue || '')} 
+          onChange={(e) => {
+            if (editingItem) setEditingItem({...editingItem, [field.name]: e.target.value});
+          }}
           className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
         >
           <option value="">{options.length === 0 && adminSection === 'vasteTrainingen' && field.name === 'locatieId' ? 'Eerst dag/uren invullen...' : 'Kies...'}</option>
