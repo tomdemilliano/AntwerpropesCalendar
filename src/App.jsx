@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 
 const App = () => {
@@ -149,8 +149,14 @@ const App = () => {
       data: seizoenen,
       fields: [
         { name: 'naam', label: 'Naam Seizoen', type: 'text', placeholder: 'bv. 2025-2026' },
-        { name: 'startDatum', label: 'Startdatum', type: 'date' },
-        { name: 'eindDatum', label: 'Einddatum', type: 'date' }
+        { isRow: true, fields: [
+          { name: 'startDatum', label: 'Startdatum Seizoen', type: 'date' },
+          { name: 'eindDatum', label: 'Einddatum Seizoen', type: 'date' }
+        ]},
+        { isRow: true, fields: [
+          { name: 'startTrainingen', label: 'Start Trainingen', type: 'date' },
+          { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }
+        ]}
       ]
     },
     vasteTrainingen: {
@@ -199,14 +205,18 @@ const App = () => {
     if (!selectedSeasonId || selectedVasteIds.length === 0) return;
 
     const seizoen = seizoenen.find(s => s.id === selectedSeasonId);
-    const start = new Date(seizoen.startDatum);
-    const eind = new Date(seizoen.eindDatum);
+    // Gebruik de trainingsdatums indien ingevuld, anders de seizoensdatums
+    const startStr = seizoen.startTrainingen || seizoen.startDatum;
+    const eindStr = seizoen.eindTrainingen || seizoen.eindDatum;
+    
+    const start = new Date(startStr);
+    const eind = new Date(eindStr);
     const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
     const q = query(
       collection(db, "planning"), 
-      where("datum", ">=", seizoen.startDatum),
-      where("datum", "<=", seizoen.eindDatum)
+      where("datum", ">=", startStr),
+      where("datum", "<=", eindStr)
     );
     const existingDocs = await getDocs(q);
     
@@ -248,6 +258,32 @@ const App = () => {
     alert("Trainingsmomenten succesvol ingepland!");
   };
 
+  const handleDeleteAllPlannedForSeason = async (seizoen) => {
+    const confirmDelete = window.confirm(
+      `Weet u zeker dat u ALLE ingeplande trainingen voor het seizoen "${seizoen.naam}" wilt verwijderen uit de kalender?\n\n` +
+      `Dit verwijdert alle items tussen ${seizoen.startDatum} en ${seizoen.eindDatum}.`
+    );
+
+    if (confirmDelete) {
+      const q = query(
+        collection(db, "planning"),
+        where("datum", ">=", seizoen.startDatum),
+        where("datum", "<=", seizoen.eindDatum)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      querySnapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      await batch.commit();
+      alert(`${querySnapshot.size} trainingen zijn succesvol verwijderd uit de planning.`);
+      setShowAdminModal(false);
+    }
+  };
+
   const handleDeleteVasteTraining = async (item) => {
     const isScheduled = isIngepland(item);
     
@@ -260,7 +296,6 @@ const App = () => {
       if (confirmDelete) {
         const batch = writeBatch(db);
         
-        // Verwijder alle gekoppelde planning-items
         const relevantTrainingen = trainingen.filter(t => 
           t.groepId === item.groepId && t.uren === `${item.startUur}-${item.eindUur}`
         );
@@ -269,7 +304,6 @@ const App = () => {
           batch.delete(doc(db, "planning", t.id));
         });
         
-        // Verwijder de vaste training zelf
         batch.delete(doc(db, "vasteTrainingen", item.id));
         
         await batch.commit();
@@ -606,6 +640,20 @@ const App = () => {
                   </div>
                 );
               })}
+
+              {/* EXTRA KNOP VOOR SEIZOENEN BEWERKEN */}
+              {adminSection === 'seizoenen' && editingItem && (
+                <div className="pt-4 mt-4 border-t border-slate-50">
+                   <button 
+                    type="button"
+                    onClick={() => handleDeleteAllPlannedForSeason(editingItem)}
+                    className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold text-sm border border-red-100 flex items-center justify-center gap-2 hover:bg-red-100 transition-all"
+                  >
+                    <AlertTriangle size={16}/> Verwijder alle ingeplande momenten
+                  </button>
+                </div>
+              )}
+
               <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all mt-4">
                 {editingItem ? 'Wijzigingen Opslaan' : 'Toevoegen'}
               </button>
