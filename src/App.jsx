@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from './firebase';
 import { 
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc, where, getDocs, writeBatch
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter
 } from 'lucide-react';
 
 const App = () => {
@@ -18,6 +18,9 @@ const App = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // State voor Seizoen Selectie in Beheer
+  const [activeSeasonId, setActiveSeasonId] = useState('');
+
   // State voor Bulk Scheduling
   const [selectedSeasonId, setSelectedSeasonId] = useState('');
   const [selectedVasteIds, setSelectedVasteIds] = useState([]);
@@ -53,7 +56,17 @@ const App = () => {
       setLocaties(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
     const unsubSeizoenen = onSnapshot(query(collection(db, "seizoenen"), orderBy("startDatum", "desc")), (snapshot) => {
-      setSeizoenen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSeizoenen(data);
+      
+      // Standaard seizoen zetten op basis van huidige datum
+      const today = new Date().toISOString().split('T')[0];
+      const huidigSeizoen = data.find(s => today >= s.startDatum && today <= s.eindDatum);
+      if (huidigSeizoen && !activeSeasonId) {
+        setActiveSeasonId(huidigSeizoen.id);
+      } else if (data.length > 0 && !activeSeasonId) {
+        setActiveSeasonId(data[0].id);
+      }
     });
     const unsubVasteTrainingen = onSnapshot(collection(db, "vasteTrainingen"), (snapshot) => {
       setVasteTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -63,7 +76,7 @@ const App = () => {
       unsubTrainingen(); unsubGroepen(); unsubCoaches(); 
       unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); 
     };
-  }, []);
+  }, [activeSeasonId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -74,6 +87,18 @@ const App = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Filter groepen en vaste trainingen op basis van het geselecteerde seizoen in beheer
+  const filteredGroepen = useMemo(() => {
+    const seizoenNaam = seizoenen.find(s => s.id === activeSeasonId)?.naam;
+    return groepen.filter(g => g.seizoen === seizoenNaam);
+  }, [groepen, seizoenen, activeSeasonId]);
+
+  const filteredVasteTrainingen = useMemo(() => {
+    // We tonen alleen vaste trainingen waarvan de groep behoort tot het actieve seizoen
+    const groepIdsInSeizoen = filteredGroepen.map(g => g.id);
+    return vasteTrainingen.filter(v => groepIdsInSeizoen.includes(v.groepId));
+  }, [vasteTrainingen, filteredGroepen]);
 
   const sections = {
     groepen: {
@@ -127,9 +152,9 @@ const App = () => {
       title: 'Wekelijkse Trainingen',
       collection: 'vasteTrainingen',
       icon: <Clock size={18} />,
-      data: vasteTrainingen,
+      data: filteredVasteTrainingen, // Gebruik gefilterde data
       fields: [
-        { name: 'groepId', label: 'Groep', type: 'select', options: groepen.map(g => ({ value: g.id, label: g.naam })) },
+        { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
         { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
         { isRow: true, fields: [
           { name: 'startUur', label: 'Start', type: 'time' },
@@ -150,6 +175,8 @@ const App = () => {
     
     if (currentSection.collection === 'vasteTrainingen') {
       data.coachIds = selectedCoachIds;
+      // We voegen het seizoenId toe aan de training als referentie (optioneel, filtering gebeurt nu via groep)
+      data.seizoenId = activeSeasonId; 
     }
 
     if (editingItem) {
@@ -171,8 +198,6 @@ const App = () => {
     const eind = new Date(seizoen.eindDatum);
     const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
-    // Om de index-error te vermijden, halen we alle planning items op van het seizoen
-    // en filteren we lokaal in plaats van via een samengestelde Firestore query.
     const q = query(
       collection(db, "planning"), 
       where("datum", ">=", seizoen.startDatum),
@@ -186,7 +211,6 @@ const App = () => {
       const vaste = vasteTrainingen.find(v => v.id === vasteId);
       const targetDag = dagIndexen[vaste.dag];
 
-      // 1. Verwijder bestaande trainingen voor DEZE groep en DEZE weekdag binnen de periode
       existingDocs.forEach(docSnap => {
         const data = docSnap.data();
         const d = new Date(data.datum);
@@ -195,7 +219,6 @@ const App = () => {
         }
       });
 
-      // 2. Genereer nieuwe datums
       let loopDate = new Date(start);
       while (loopDate <= eind) {
         if (loopDate.getDay() === targetDag) {
@@ -370,7 +393,22 @@ const App = () => {
 
             <div className="flex-1 overflow-y-auto p-8 bg-white">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
+                  {adminSection === 'vasteTrainingen' && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+                      <Filter size={14} className="text-indigo-600" />
+                      <span>Actief seizoen:</span>
+                      <select 
+                        value={activeSeasonId} 
+                        onChange={(e) => setActiveSeasonId(e.target.value)}
+                        className="bg-transparent font-bold text-indigo-600 outline-none border-b border-indigo-200"
+                      >
+                        {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   {adminSection === 'vasteTrainingen' && (
                     <button onClick={() => setShowBulkScheduleModal(true)} className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-200 transition text-sm font-bold">
@@ -395,20 +433,28 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {currentSection.data.map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                        {currentSection.fields.map((f, i) => {
-                          if (f.isRow) return f.fields.map(sub => <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, sub)}</td>);
-                          return <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, f)}</td>;
-                        })}
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
-                            <button onClick={async () => { if(window.confirm("Verwijderen?")) await deleteDoc(doc(db, currentSection.collection, item.id)); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
-                          </div>
+                    {currentSection.data.length > 0 ? (
+                      currentSection.data.map(item => (
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                          {currentSection.fields.map((f, i) => {
+                            if (f.isRow) return f.fields.map(sub => <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, sub)}</td>);
+                            return <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium">{renderCellContent(item, f)}</td>;
+                          })}
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
+                              <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
+                              <button onClick={async () => { if(window.confirm("Verwijderen?")) await deleteDoc(doc(db, currentSection.collection, item.id)); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="100%" className="px-4 py-12 text-center text-slate-400 text-sm">
+                          Geen gegevens gevonden voor dit seizoen.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -428,7 +474,12 @@ const App = () => {
             <form onSubmit={handleBulkSchedule} className="p-6 space-y-6">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Seizoen</label>
-                <select required className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none" onChange={e => setSelectedSeasonId(e.target.value)}>
+                <select 
+                  required 
+                  className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none" 
+                  value={selectedSeasonId || activeSeasonId}
+                  onChange={e => setSelectedSeasonId(e.target.value)}
+                >
                   <option value="">Selecteer seizoen...</option>
                   {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam} ({s.startDatum} tot {s.eindDatum})</option>)}
                 </select>
@@ -436,7 +487,14 @@ const App = () => {
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kies Momenten om te genereren</label>
                 <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-slate-50 rounded-xl p-2">
-                  {vasteTrainingen.map(v => (
+                  {/* Toon hier alle vaste trainingen van het gekozen seizoen in de bulk modal */}
+                  {vasteTrainingen
+                    .filter(v => {
+                      const selSeason = seizoenen.find(s => s.id === (selectedSeasonId || activeSeasonId));
+                      const groep = groepen.find(g => g.id === v.groepId);
+                      return groep?.seizoen === selSeason?.naam;
+                    })
+                    .map(v => (
                     <label key={v.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                       <input 
                         type="checkbox" 
