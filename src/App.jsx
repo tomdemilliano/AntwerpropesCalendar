@@ -379,6 +379,7 @@ const App = () => {
       setSelectedCoachIds(item.coachIds || []);
     }
     if (adminSection === 'vasteTrainingen') {
+      // FIX: Direct de state updaten zodat de filters werken bij het openen
       setTempVasteTraining({ 
         dag: item.dag || '', 
         startUur: item.startUur || '', 
@@ -464,7 +465,6 @@ const App = () => {
     if (field.type === 'select') {
       let options = field.options;
       
-      // Specifieke logica voor wekelijkse trainingen locatie keuze
       if (adminSection === 'vasteTrainingen' && field.name === 'locatieId') {
         options = getBeschikbareLocatieOpties();
       }
@@ -473,9 +473,13 @@ const App = () => {
         <select 
           name={field.name} 
           required 
-          value={editingItem ? (editingItem[field.name] || '') : (field.defaultValue || '')} 
+          // FIX: Gebruik value bij dynamische velden voor reactiviteit
+          value={adminSection === 'vasteTrainingen' && field.name === 'dag' ? tempVasteTraining.dag : (editingItem ? (editingItem[field.name] || '') : undefined)}
+          defaultValue={!editingItem ? '' : undefined}
           onChange={(e) => {
-            if (editingItem) setEditingItem({...editingItem, [field.name]: e.target.value});
+            if (adminSection === 'vasteTrainingen' && field.name === 'dag') {
+              setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
+            }
           }}
           className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
         >
@@ -494,7 +498,9 @@ const App = () => {
         name={field.name} 
         type={field.type} 
         required 
-        defaultValue={editingItem ? editingItem[field.name] : ''} 
+        // FIX: Gebruik value voor reactiviteit bij de tijd velden van vaste trainingen
+        value={adminSection === 'vasteTrainingen' && (field.name === 'startUur' || field.name === 'eindUur') ? tempVasteTraining[field.name] : (editingItem ? (editingItem[field.name] || '') : undefined)}
+        defaultValue={!editingItem ? '' : undefined}
         placeholder={field.placeholder} 
         className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
         onChange={(e) => {
