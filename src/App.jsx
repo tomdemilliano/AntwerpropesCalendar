@@ -5,13 +5,14 @@ import {
 } from 'firebase/firestore';
 import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2
+  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX
 } from 'lucide-react';
 
 const App = () => {
   // --- UI STATE ---
   const [activeTab, setActiveTab] = useState('kalender'); 
   const [adminSection, setAdminSection] = useState('groepen');
+  const [zaalTab, setZaalTab] = useState('weekplanning'); // Nieuw: switch tussen weekplanning en uitzonderingen
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
@@ -42,6 +43,7 @@ const App = () => {
   const [seizoenen, setSeizoenen] = useState([]);
   const [vasteTrainingen, setVasteTrainingen] = useState([]);
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
+  const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]); // Nieuw
 
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
@@ -74,10 +76,13 @@ const App = () => {
     const unsubBeschikbareZalen = onSnapshot(collection(db, "beschikbareZalen"), (snapshot) => {
       setBeschikbareZalen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+    const unsubUitzonderingen = onSnapshot(collection(db, "zaalUitzonderingen"), (snapshot) => {
+      setZaalUitzonderingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
     return () => { 
       unsubTrainingen(); unsubGroepen(); unsubCoaches(); 
-      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen();
+      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen(); unsubUitzonderingen();
     };
   }, [activeSeasonId]);
 
@@ -106,6 +111,10 @@ const App = () => {
     return beschikbareZalen.filter(z => z.seizoenId === activeSeasonId);
   }, [beschikbareZalen, activeSeasonId]);
 
+  const filteredUitzonderingen = useMemo(() => {
+    return zaalUitzonderingen.filter(u => u.seizoenId === activeSeasonId);
+  }, [zaalUitzonderingen, activeSeasonId]);
+
   // Helper om te checken of een tijdstip valt binnen een zaalbeschikbaarheid
   const getBeschikbareLocatieOpties = () => {
     const { dag, startUur, eindUur } = tempVasteTraining;
@@ -113,7 +122,6 @@ const App = () => {
 
     return filteredBeschikbareZalen
       .filter(zaal => {
-        // Controleer of de zaal op de juiste dag beschikbaar is en de tijden vallen binnen de openingstijden
         return zaal.dag === dag && 
                zaal.startUur <= startUur && 
                zaal.eindUur >= eindUur;
@@ -173,10 +181,10 @@ const App = () => {
     },
     beschikbareZalen: {
       title: 'Beschikbare zalen',
-      collection: 'beschikbareZalen',
+      collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
       icon: <Building2 size={18} />,
-      data: filteredBeschikbareZalen,
-      fields: [
+      data: zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen,
+      fields: zaalTab === 'weekplanning' ? [
         { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
         { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
         { isRow: true, fields: [
@@ -185,6 +193,14 @@ const App = () => {
           { name: 'eindUur', label: 'Einduur', type: 'time' }
         ]},
         { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+      ] : [
+        { name: 'datum', label: 'Datum', type: 'date' },
+        { name: 'zaalId', label: 'Betreffende Zaalplanning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ 
+            value: z.id, 
+            label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` 
+          })) 
+        },
+        { name: 'reden', label: 'Reden van onbeschikbaarheid', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' }
       ]
     },
     seizoenen: {
@@ -242,7 +258,7 @@ const App = () => {
       data.seizoenId = activeSeasonId;
     }
 
-    if (currentSection.collection === 'beschikbareZalen') {
+    if (currentSection.collection === 'beschikbareZalen' || currentSection.collection === 'zaalUitzonderingen') {
       data.seizoenId = activeSeasonId;
     }
 
@@ -400,6 +416,11 @@ const App = () => {
     const value = item[field.name];
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
     if (field.name === 'locatieId') return locaties.find(l => l.id === value)?.naam || 'Onbekend';
+    if (field.name === 'zaalId') {
+        const z = beschikbareZalen.find(bz => bz.id === value);
+        if (!z) return 'Onbekend';
+        return `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag})`;
+    }
     if (field.name === 'coachIds' && Array.isArray(value)) {
       return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
     }
@@ -472,7 +493,7 @@ const App = () => {
       return (
         <select 
           name={field.name} 
-          required 
+          required={field.name !== 'reden'} 
           defaultValue={editingItem ? editingItem[field.name] : ''} 
           className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
           onChange={(e) => {
@@ -483,7 +504,6 @@ const App = () => {
                 setSelectedCoachIds(gObj.coachIds);
               }
             }
-            // Trigger herberekening voor locaties als dag wordt veranderd via select
             if (adminSection === 'vasteTrainingen' && field.name === 'dag') {
               setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
             }
@@ -503,12 +523,11 @@ const App = () => {
       <input 
         name={field.name} 
         type={field.type} 
-        required 
+        required={field.name !== 'reden'} 
         defaultValue={editingItem ? editingItem[field.name] : ''} 
         placeholder={field.placeholder} 
         className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
         onChange={(e) => {
-          // Update de temp state voor dynamische filtering
           if (adminSection === 'vasteTrainingen' && ['dag', 'startUur', 'eindUur'].includes(field.name)) {
             setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
           }
@@ -604,6 +623,24 @@ const App = () => {
                   </button>
                 </div>
               </div>
+
+              {/* TABBLADEN VOOR BESCHIKBARE ZALEN */}
+              {adminSection === 'beschikbareZalen' && (
+                <div className="flex gap-4 mb-6 border-b border-slate-100">
+                  <button 
+                    onClick={() => setZaalTab('weekplanning')}
+                    className={`pb-2 px-4 text-sm font-bold transition-all ${zaalTab === 'weekplanning' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}
+                  >
+                    Weekplanning
+                  </button>
+                  <button 
+                    onClick={() => setZaalTab('uitzonderingen')}
+                    className={`pb-2 px-4 text-sm font-bold transition-all ${zaalTab === 'uitzonderingen' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}
+                  >
+                    Uitzonderingen
+                  </button>
+                </div>
+              )}
 
               <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
