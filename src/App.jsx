@@ -4,6 +4,11 @@ import {
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc, where, getDocs, writeBatch
 } from 'firebase/firestore';
 import { 
+  handleBulkSchedule, 
+  handleDeleteAllPlannedForSeason, 
+  handleDeleteVasteTraining 
+} from './firebaseUtils';
+import { 
   ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
   Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX, PlusCircle
 } from 'lucide-react';
@@ -291,123 +296,6 @@ const App = () => {
     setEditingItem(null);
     setSelectedCoachIds([]);
     setTempVasteTraining({ dag: '', startUur: '', eindUur: '' });
-  };
-
-  const handleBulkSchedule = async (e) => {
-    e.preventDefault();
-    const seasonIdToUse = selectedSeasonId || activeSeasonId;
-    if (!seasonIdToUse || selectedVasteIds.length === 0) return;
-
-    const seizoen = seizoenen.find(s => s.id === seasonIdToUse);
-    const trainingStartStr = seizoen.startTrainingen || seizoen.startDatum;
-    const trainingEindStr = seizoen.eindTrainingen || seizoen.eindDatum;
-
-    if (!trainingStartStr || !trainingEindStr) {
-      alert("Zorg dat de start- en einddatum van de trainingen zijn ingevuld voor dit seizoen.");
-      return;
-    }
-
-    const start = new Date(trainingStartStr);
-    const eind = new Date(trainingEindStr);
-    const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
-
-    const q = query(
-      collection(db, "planning"), 
-      where("datum", ">=", trainingStartStr),
-      where("datum", "<=", trainingEindStr)
-    );
-    const existingDocs = await getDocs(q);
-    
-    const batch = writeBatch(db);
-
-    for (const vasteId of selectedVasteIds) {
-      const vaste = vasteTrainingen.find(v => v.id === vasteId);
-      const targetDag = dagIndexen[vaste.dag];
-
-      existingDocs.forEach(docSnap => {
-        const data = docSnap.data();
-        const d = new Date(data.datum);
-        if (data.groepId === vaste.groepId && d.getDay() === targetDag) {
-          batch.delete(docSnap.ref);
-        }
-      });
-
-      let loopDate = new Date(start);
-      while (loopDate <= eind) {
-        if (loopDate.getDay() === targetDag) {
-          const formattedDate = loopDate.toISOString().split('T')[0];
-          const newDocRef = doc(collection(db, "planning"));
-          batch.set(newDocRef, {
-            datum: formattedDate,
-            groepId: vaste.groepId,
-            locatieId: vaste.locatieId,
-            uren: `${vaste.startUur}-${vaste.eindUur}`,
-            coachId: vaste.coachIds?.[0] || '',
-            coachIds: vaste.coachIds || []
-          });
-        }
-        loopDate.setDate(loopDate.getDate() + 1);
-      }
-    }
-
-    await batch.commit();
-    setShowBulkScheduleModal(false);
-    setSelectedVasteIds([]);
-    alert(`Trainingsmomenten succesvol ingepland tussen ${trainingStartStr} en ${trainingEindStr}!`);
-  };
-
-  const handleDeleteAllPlannedForSeason = async (seizoen) => {
-    const confirmDelete = window.confirm(
-      `Weet u zeker dat u ALLE ingeplande trainingen voor het seizoen "${seizoen.naam}" wilt verwijderen uit de kalender?\n\n` +
-      `Dit verwijdert alle items tussen ${seizoen.startDatum} en ${seizoen.eindDatum}.`
-    );
-
-    if (confirmDelete) {
-      const q = query(
-        collection(db, "planning"),
-        where("datum", ">=", seizoen.startDatum),
-        where("datum", "<=", seizoen.eindDatum)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const batch = writeBatch(db);
-      
-      querySnapshot.forEach((docSnap) => {
-        batch.delete(docSnap.ref);
-      });
-
-      await batch.commit();
-      alert(`${querySnapshot.size} trainingen zijn succesvol verwijderd uit de planning.`);
-      setShowAdminModal(false);
-    }
-  };
-
-  const handleDeleteVasteTraining = async (item) => {
-    const isScheduled = isIngepland(item);
-    
-    if (isScheduled) {
-      const confirmDelete = window.confirm(
-        "Er zijn reeds trainingen ingepland in de kalender voor dit wekelijkse moment.\n\n" +
-        "Wilt u dit wekelijkse moment én alle bijbehorende trainingen uit de kalender verwijderen?"
-      );
-      
-      if (confirmDelete) {
-        const batch = writeBatch(db);
-        const relevantTrainingen = trainingen.filter(t => 
-          t.groepId === item.groepId && t.uren === `${item.startUur}-${item.eindUur}`
-        );
-        relevantTrainingen.forEach(t => {
-          batch.delete(doc(db, "planning", t.id));
-        });
-        batch.delete(doc(db, "vasteTrainingen", item.id));
-        await batch.commit();
-        alert("Wekelijks moment en alle ingeplande trainingen zijn verwijderd.");
-      }
-    } else {
-      if(window.confirm("Weet u zeker dat u dit wekelijkse moment wilt verwijderen?")) {
-        await deleteDoc(doc(db, "vasteTrainingen", item.id));
-      }
-    }
   };
 
   const openEditModal = (item) => {
