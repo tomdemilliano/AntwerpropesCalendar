@@ -113,6 +113,7 @@ const App = () => {
 
     return filteredBeschikbareZalen
       .filter(zaal => {
+        // Controleer of de zaal op de juiste dag beschikbaar is en de tijden vallen binnen de openingstijden
         return zaal.dag === dag && 
                zaal.startUur <= startUur && 
                zaal.eindUur >= eindUur;
@@ -216,7 +217,7 @@ const App = () => {
           { name: 'eindUur', label: 'Einde', type: 'time' }
         ]},
         { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
-        { name: 'locatieId', label: 'Locatie', type: 'select', isDynamic: true, options: [] }, // Options worden dynamisch bepaald in RenderInputField
+        { name: 'locatieId', label: 'Locatie', type: 'select', isDynamic: true, options: [] }, 
         { name: 'ingepland', label: 'Ingepland', type: 'status' }
       ]
     }
@@ -464,7 +465,6 @@ const App = () => {
     if (field.type === 'select') {
       let options = field.options;
       
-      // Specifieke logica voor wekelijkse trainingen locatie keuze
       if (adminSection === 'vasteTrainingen' && field.name === 'locatieId') {
         options = getBeschikbareLocatieOpties();
       }
@@ -476,8 +476,6 @@ const App = () => {
           defaultValue={editingItem ? editingItem[field.name] : ''} 
           className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
           onChange={(e) => {
-            // AANPASSING: Als we een wekelijkse training toevoegen en een groep kiezen,
-            // vul dan automatisch de coaches in van die groep.
             if (adminSection === 'vasteTrainingen' && field.name === 'groepId') {
               const gId = e.target.value;
               const gObj = groepen.find(g => g.id === gId);
@@ -485,9 +483,13 @@ const App = () => {
                 setSelectedCoachIds(gObj.coachIds);
               }
             }
+            // Trigger herberekening voor locaties als dag wordt veranderd via select
+            if (adminSection === 'vasteTrainingen' && field.name === 'dag') {
+              setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
+            }
           }}
         >
-          <option value="">{options.length === 0 && adminSection === 'vasteTrainingen' && field.name === 'locatieId' ? 'Eerst dag/uren invullen...' : 'Kies...'}</option>
+          <option value="">{options.length === 0 && adminSection === 'vasteTrainingen' && field.name === 'locatieId' ? 'Geen zaal beschikbaar op dit moment...' : 'Kies...'}</option>
           {options.map(opt => (
             <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
               {typeof opt === 'string' ? opt : opt.label}
@@ -506,6 +508,7 @@ const App = () => {
         placeholder={field.placeholder} 
         className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
         onChange={(e) => {
+          // Update de temp state voor dynamische filtering
           if (adminSection === 'vasteTrainingen' && ['dag', 'startUur', 'eindUur'].includes(field.name)) {
             setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
           }
