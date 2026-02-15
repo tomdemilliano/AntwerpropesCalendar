@@ -54,6 +54,28 @@ const App = () => {
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
   const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]);
 
+  const handleAddTraining = async (e) => {e.preventDefault();
+    try {
+      // We gebruiken de 'newTraining' state die al in App.jsx leeft
+      await addDoc(collection(db, "planning"), newTraining);
+    
+      // Sluit de modal na succesvol opslaan
+      setShowTrainingModal(false);
+    
+      // Optioneel: reset de state voor de volgende keer
+      setNewTraining({
+        datum: '',
+        groepId: '',
+        coachId: '',
+        uren: '',
+        locatieId: ''
+      });
+    } catch (error) {
+      console.error("Fout bij het toevoegen van training:", error);
+      alert("Er is een fout opgetreden bij het opslaan.");
+    }
+  };
+  
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
       setTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
