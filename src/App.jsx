@@ -4,16 +4,14 @@ import {
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc
 } from 'firebase/firestore';
 import { handleBulkSchedule, handleDeleteAllPlannedForSeason, handleDeleteVasteTraining } from './firebaseUtils';
-import { 
-  ChevronLeft, ChevronRight, Plus, Trash2, MapPin, User, Users, Settings, 
-  Calendar as CalendarIcon, X, LayoutGrid, Edit2, Clock, CalendarDays, Search, CalendarCheck, Filter, CheckCircle2, AlertTriangle, Building2, CalendarX, PlusCircle
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Search } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
-import AdminTable from './components/AdminTable'; // Nieuwe component
+import AdminTable from './components/AdminTable';
+import { getSectionsConfig } from './adminConfig'; // Import de nieuwe config
 
 const App = () => {
   // --- UI STATE ---
@@ -46,7 +44,7 @@ const App = () => {
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
   const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]);
 
-  // --- FIREBASE FETCHING ---
+  // --- FIREBASE FETCHING (Ongewijzigd) ---
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
       setTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -112,7 +110,14 @@ const App = () => {
     return zaalUitzonderingen.filter(u => u.seizoenId === activeSeasonId);
   }, [zaalUitzonderingen, activeSeasonId]);
 
-  // --- LOGIC ---
+  // --- DYNAMIC SECTIONS CONFIG ---
+  const sections = getSectionsConfig(
+    filteredGroepen, coaches, locaties, filteredBeschikbareZalen, 
+    filteredUitzonderingen, seizoenen, filteredVasteTrainingen, zaalTab, uitzonderingType
+  );
+  const currentSection = sections[adminSection];
+
+  // --- LOGIC (De rest van de functies zoals handleSaveAdminItem blijft hier) ---
   const getBeschikbareLocatieOpties = () => {
     const { dag, startUur, eindUur } = tempVasteTraining;
     if (!dag || !startUur || !eindUur) return [];
@@ -137,7 +142,7 @@ const App = () => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
-    const currentColl = sections[adminSection].collection;
+    const currentColl = currentSection.collection;
     
     if (currentColl === 'vasteTrainingen' || currentColl === 'groepen') data.coachIds = selectedCoachIds;
     if (currentColl === 'groepen') {
@@ -171,73 +176,7 @@ const App = () => {
     setCoachSearch('');
   };
 
-  // --- SECTIONS CONFIGURATION ---
-  const sections = {
-    groepen: { title: 'Trainingsgroepen', collection: 'groepen', icon: <Users size={18} />, data: filteredGroepen, fields: [
-        { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
-        { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
-        { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
-        { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
-    ]},
-    coaches: { title: 'Coaches', collection: 'coaches', icon: <User size={18} />, data: coaches, fields: [
-        { name: 'voornaam', label: 'Voornaam', type: 'text', placeholder: 'Jan' },
-        { name: 'achternaam', label: 'Achternaam', type: 'text', placeholder: 'Janssen' },
-        { name: 'uurtarief', label: 'Uurtarief (€)', type: 'number', placeholder: '0.00' }
-    ]},
-    locaties: { title: 'Locaties', collection: 'locaties', icon: <MapPin size={18} />, data: locaties, fields: [
-        { name: 'naam', label: 'Naam Locatie', type: 'text', placeholder: 'bv. Sporthal De Dreef' },
-        { name: 'straat', label: 'Straat', type: 'text' },
-        { name: 'huisnummer', label: 'Nr.', type: 'text' },
-        { name: 'gemeente', label: 'Gemeente', type: 'text' },
-        { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
-    ]},
-    beschikbareZalen: {
-      title: 'Beschikbare zalen',
-      collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
-      icon: <Building2 size={18} />,
-      data: zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen,
-      fields: zaalTab === 'weekplanning' ? [
-        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
-        { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-        { isRow: true, fields: [
-          { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
-          { name: 'startUur', label: 'Beginuur', type: 'time' },
-          { name: 'eindUur', label: 'Einduur', type: 'time' }
-        ]},
-        { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-      ] : (uitzonderingType === 'onbeschikbaar' ? [
-        { name: 'datum', label: 'Datum', type: 'date' },
-        { name: 'zaalId', label: 'Betreffende Vaste Planning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ value: z.id, label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` })) },
-        { name: 'reden', label: 'Reden van onbeschikbaarheid', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' }
-      ] : [
-        { name: 'datum', label: 'Datum', type: 'date' },
-        { isRow: true, fields: [{ name: 'startUur', label: 'Beginuur', type: 'time' }, { name: 'eindUur', label: 'Einduur', type: 'time' }] },
-        { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
-        { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-        { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-      ])
-    },
-    seizoenen: { title: 'Seizoenen', collection: 'seizoenen', icon: <CalendarDays size={18} />, data: seizoenen, fields: [
-        { name: 'naam', label: 'Naam Seizoen', type: 'text', placeholder: 'bv. 2025-2026' },
-        { isRow: true, fields: [{ name: 'startDatum', label: 'Startdatum Seizoen', type: 'date' }, { name: 'eindDatum', label: 'Einddatum Seizoen', type: 'date' }] },
-        { isRow: true, fields: [{ name: 'startTrainingen', label: 'Start Trainingen', type: 'date' }, { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }] }
-    ]},
-    vasteTrainingen: { title: 'Wekelijkse Trainingen', collection: 'vasteTrainingen', icon: <Clock size={18} />, data: filteredVasteTrainingen, fields: [
-        { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
-        { isRow: true, fields: [
-          { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
-          { name: 'startUur', label: 'Start', type: 'time' },
-          { name: 'eindUur', label: 'Einde', type: 'time' }
-        ]},
-        { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
-        { name: 'locatieId', label: 'Locatie', type: 'select', isDynamic: true, options: [] }, 
-        { name: 'ingepland', label: 'Ingepland', type: 'status' }
-    ]}
-  };
-
-  const currentSection = sections[adminSection];
-
-  // --- RENDER HELPERS (Deze verhuizen we in de volgende stap naar de component) ---
+  // --- RENDER HELPERS ---
   const RenderInputField = (field) => {
     if (field.type === 'tag-input') {
       return (
@@ -369,18 +308,17 @@ const App = () => {
         )}
       </main>
 
+      {/* Modals blijven identiek... */}
       <BulkScheduleModal 
         show={showBulkScheduleModal} onClose={() => setShowBulkScheduleModal(false)}
         onSubmit={async (e) => { e.preventDefault(); await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen); setShowBulkScheduleModal(false); setSelectedVasteIds([]); }}
         seizoenen={seizoenen} selectedSeasonId={selectedSeasonId} setSelectedSeasonId={setSelectedSeasonId} activeSeasonId={activeSeasonId} vasteTrainingen={vasteTrainingen} selectedVasteIds={selectedVasteIds} setSelectedVasteIds={setSelectedVasteIds}
       />
-
       <AdminModal 
         show={showAdminModal} onClose={() => setShowAdminModal(false)}
         title={editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie' : 'Zaal onbeschikbaar') : 'Nieuw Item')}
         onSubmit={handleSaveAdminItem} editingItem={editingItem} fields={currentSection.fields} renderInputField={RenderInputField} handleDeleteAllPlanned={handleDeleteAllPlannedForSeason} adminSection={adminSection}
       />
-
       <TrainingModal 
         show={showTrainingModal} onClose={() => setShowTrainingModal(false)} onSubmit={handleAddTraining}
         newTraining={newTraining} setNewTraining={setNewTraining} groepen={groepen} coaches={coaches} locaties={locaties}
