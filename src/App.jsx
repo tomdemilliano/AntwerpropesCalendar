@@ -11,13 +11,14 @@ import AdminModal from './components/AdminModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
-import { getSectionsConfig } from './adminConfig'; // Import de nieuwe config
+import { getSectionsConfig } from './adminConfig';
 
 const App = () => {
   // --- UI STATE ---
   const [activeTab, setActiveTab] = useState('kalender'); 
   const [adminSection, setAdminSection] = useState('groepen');
   const [zaalTab, setZaalTab] = useState('weekplanning'); 
+  const [vasteTab, setVasteTab] = useState('vaste-planning'); // Nieuwe tab voor wekelijkse planning
   const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
@@ -43,8 +44,9 @@ const App = () => {
   const [vasteTrainingen, setVasteTrainingen] = useState([]);
   const [beschikbareZalen, setBeschikbareZalen] = useState([]);
   const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]);
+  const [afwijkingen, setAfwijkingen] = useState([]); // Nieuwe collectie
 
-  // --- FIREBASE FETCHING (Ongewijzigd) ---
+  // --- FIREBASE FETCHING ---
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
       setTrainingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -75,10 +77,14 @@ const App = () => {
     const unsubUitzonderingen = onSnapshot(collection(db, "zaalUitzonderingen"), (snapshot) => {
       setZaalUitzonderingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+    const unsubAfwijkingen = onSnapshot(collection(db, "afwijkingen"), (snapshot) => {
+      setAfwijkingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
     return () => { 
-      unsubTrainingen(); unsubGroepen(); unsubCoaches(); 
-      unsubLocaties(); unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen(); unsubUitzonderingen();
+      unsubTrainingen(); unsubGroepen(); unsubCoaches(); unsubLocaties(); 
+      unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen(); 
+      unsubUitzonderingen(); unsubAfwijkingen();
     };
   }, [activeSeasonId]);
 
@@ -102,6 +108,10 @@ const App = () => {
     return vasteTrainingen.filter(v => groepIdsInSeizoen.includes(v.groepId));
   }, [vasteTrainingen, filteredGroepen]);
 
+  const filteredAfwijkingen = useMemo(() => {
+    return afwijkingen.filter(a => a.seizoenId === activeSeasonId);
+  }, [afwijkingen, activeSeasonId]);
+
   const filteredBeschikbareZalen = useMemo(() => {
     return beschikbareZalen.filter(z => z.seizoenId === activeSeasonId);
   }, [beschikbareZalen, activeSeasonId]);
@@ -113,29 +123,44 @@ const App = () => {
   // --- DYNAMIC SECTIONS CONFIG ---
   const sections = getSectionsConfig(
     filteredGroepen, coaches, locaties, filteredBeschikbareZalen, 
-    filteredUitzonderingen, seizoenen, filteredVasteTrainingen, zaalTab, uitzonderingType
+    filteredUitzonderingen, seizoenen, filteredVasteTrainingen, zaalTab, uitzonderingType,
+    filteredAfwijkingen, vasteTab // Extra parameters doorsturen
   );
   const currentSection = sections[adminSection];
 
-  // --- LOGIC (De rest van de functies zoals handleSaveAdminItem blijft hier) ---
-  const getBeschikbareLocatieOpties = () => {
-    const { dag, startUur, eindUur } = tempVasteTraining;
-    if (!dag || !startUur || !eindUur) return [];
-    return filteredBeschikbareZalen
-      .filter(zaal => zaal.dag === dag && zaal.startUur <= startUur && zaal.eindUur >= eindUur)
+  // --- LOGIC ---
+  const getBeschikbareLocatieOpties = (contextItem = null) => {
+    const { dag, startUur, eindUur, datum } = tempVasteTraining;
+    
+    // Voor afwijkingen bepalen we de dag op basis van de datum
+    let effectiveDag = dag;
+    if (datum && !dag) {
+      const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+      effectiveDag = days[new Date(datum).getDay()];
+    }
+
+    if (!effectiveDag || !startUur || !eindUur) return [];
+
+    // 1. Basis: Zalen uit vaste weekplanning
+    let opties = filteredBeschikbareZalen
+      .filter(zaal => zaal.dag === effectiveDag && zaal.startUur <= startUur && zaal.eindUur >= eindUur)
       .map(zaal => ({ 
         value: zaal.locatieId, 
         label: `${locaties.find(l => l.id === zaal.locatieId)?.naam || 'Onbekend'} (${zaal.zaaldelen})` 
       }));
-  };
 
-  const handleAddTraining = async (e) => {
-    e.preventDefault();
-    try {
-      await addDoc(collection(db, "planning"), newTraining);
-      setShowTrainingModal(false);
-      setNewTraining({ datum: '', groepId: '', coachId: '', uren: '', locatieId: '' });
-    } catch (error) { alert("Er is een fout opgetreden."); }
+    // 2. Extra: Toevoegen van 'extra reservaties' uit uitzonderingen voor die specifieke datum
+    if (datum) {
+      const extraZalen = filteredUitzonderingen
+        .filter(u => u.type === 'extra' && u.datum === datum)
+        .map(u => ({
+          value: u.locatieId,
+          label: `EXTRA: ${locaties.find(l => l.id === u.locatieId)?.naam || 'Onbekend'}`
+        }));
+      opties = [...opties, ...extraZalen];
+    }
+
+    return opties;
   };
 
   const handleSaveAdminItem = async (e) => {
@@ -149,7 +174,7 @@ const App = () => {
         const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
         data.seizoen = actueelSeizoen?.naam || '';
     }
-    if (['vasteTrainingen', 'groepen', 'beschikbareZalen', 'zaalUitzonderingen'].includes(currentColl)) {
+    if (['vasteTrainingen', 'groepen', 'beschikbareZalen', 'zaalUitzonderingen', 'afwijkingen'].includes(currentColl)) {
         data.seizoenId = activeSeasonId;
     }
     if (currentColl === 'zaalUitzonderingen' && !editingItem) data.type = uitzonderingType;
@@ -160,13 +185,14 @@ const App = () => {
     setShowAdminModal(false);
     setEditingItem(null);
     setSelectedCoachIds([]);
-    setTempVasteTraining({ dag: '', startUur: '', eindUur: '' });
+    setTempVasteTraining({ dag: '', startUur: '', eindUur: '', datum: '' });
   };
 
   const openEditModal = (item) => {
     setEditingItem(item);
     if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
     if (adminSection === 'vasteTrainingen') setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
+    if (adminSection === 'afwijkingen') setTempVasteTraining({ datum: item.datum, startUur: item.startUur, eindUur: item.eindUur });
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') setUitzonderingType(item.type || 'onbeschikbaar');
     setShowAdminModal(true);
   };
@@ -176,7 +202,6 @@ const App = () => {
     setCoachSearch('');
   };
 
-  // --- RENDER HELPERS ---
   const RenderInputField = (field) => {
     if (field.type === 'tag-input') {
       return (
@@ -209,7 +234,9 @@ const App = () => {
     
     if (field.type === 'select') {
       let options = field.options;
-      if (adminSection === 'vasteTrainingen' && field.name === 'locatieId') options = getBeschikbareLocatieOpties();
+      if ((adminSection === 'vasteTrainingen' || adminSection === 'afwijkingen') && field.name === 'locatieId') {
+        options = getBeschikbareLocatieOpties();
+      }
 
       return (
         <select name={field.name} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
@@ -219,9 +246,13 @@ const App = () => {
               if (gObj?.coachIds) setSelectedCoachIds(gObj.coachIds);
             }
             if (adminSection === 'vasteTrainingen' && field.name === 'dag') setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
+            if (adminSection === 'afwijkingen' && field.name === 'vasteId') {
+               const v = vasteTrainingen.find(vt => vt.id === e.target.value);
+               if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
+            }
           }}
         >
-          <option value="">{options.length === 0 && adminSection === 'vasteTrainingen' && field.name === 'locatieId' ? 'Geen zaal beschikbaar...' : 'Kies...'}</option>
+          <option value="">Kies...</option>
           {options.map(opt => <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>{typeof opt === 'string' ? opt : opt.label}</option>)}
         </select>
       );
@@ -229,12 +260,25 @@ const App = () => {
 
     return (
       <input name={field.name} type={field.type} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
-        onChange={(e) => { if (adminSection === 'vasteTrainingen' && ['dag', 'startUur', 'eindUur'].includes(field.name)) setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value })); }}
+        onChange={(e) => { 
+          if (['dag', 'startUur', 'eindUur', 'datum'].includes(field.name)) {
+            setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
+          }
+        }}
       />
     );
   };
 
-  // --- CALENDAR LOGIC ---
+  const handleAddTraining = async (e) => {
+    e.preventDefault();
+    try {
+      await addDoc(collection(db, "planning"), newTraining);
+      setShowTrainingModal(false);
+      setNewTraining({ datum: '', groepId: '', coachId: '', uren: '', locatieId: '' });
+    } catch (error) { alert("Er is een fout opgetreden."); }
+  };
+
+  // --- CALENDAR LOGIC (Ongewijzigd) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
@@ -287,6 +331,8 @@ const App = () => {
               seizoenen={seizoenen}
               zaalTab={zaalTab}
               setZaalTab={setZaalTab}
+              vasteTab={vasteTab}
+              setVasteTab={setVasteTab}
               setEditingItem={setEditingItem}
               setUitzonderingType={setUitzonderingType}
               setShowAdminModal={setShowAdminModal}
@@ -299,6 +345,7 @@ const App = () => {
               groepen={groepen}
               coaches={coaches}
               locaties={locaties}
+              vasteTrainingen={vasteTrainingen}
               beschikbareZalen={beschikbareZalen}
               db={db}
               deleteDoc={deleteDoc}
@@ -308,7 +355,6 @@ const App = () => {
         )}
       </main>
 
-      {/* Modals blijven identiek... */}
       <BulkScheduleModal 
         show={showBulkScheduleModal} onClose={() => setShowBulkScheduleModal(false)}
         onSubmit={async (e) => { e.preventDefault(); await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen); setShowBulkScheduleModal(false); setSelectedVasteIds([]); }}
