@@ -10,7 +10,9 @@ export const getSectionsConfig = (
   seizoenen, 
   filteredVasteTrainingen,
   zaalTab,
-  uitzonderingType
+  uitzonderingType,
+  filteredAfwijkingen, 
+  vasteTab
 ) => ({
   groepen: { 
     title: 'Trainingsgroepen', 
@@ -85,21 +87,33 @@ export const getSectionsConfig = (
       { isRow: true, fields: [{ name: 'startTrainingen', label: 'Start Trainingen', type: 'date' }, { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }] }
     ]
   },
-  vasteTrainingen: { 
-    title: 'Wekelijkse Trainingen', 
-    collection: 'vasteTrainingen', 
-    icon: <Clock size={18} />, 
-    data: filteredVasteTrainingen, 
-    fields: [
-      { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
-      { isRow: true, fields: [
-        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
-        { name: 'startUur', label: 'Start', type: 'time' },
-        { name: 'eindUur', label: 'Einde', type: 'time' }
-      ]},
-      { name: 'coachIds', label: 'Coaches toewijzen', type: 'tag-input' },
-      { name: 'locatieId', label: 'Locatie', type: 'select', isDynamic: true, options: [] }, 
-      { name: 'ingepland', label: 'Ingepland', type: 'status' }
-    ]
-  }
+vasteTrainingen: {
+      title: 'Wekelijkse planning',
+      collection: vasteTab === 'vaste-planning' ? 'vasteTrainingen' : 'afwijkingen',
+      data: vasteTab === 'vaste-planning' ? filteredVasteTrainingen : filteredAfwijkingen,
+      fields: vasteTab === 'vaste-planning' ? [
+        { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
+        { name: 'dag', label: 'Dag', type: 'select', options: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'] },
+        { isRow: true, fields: [
+          { name: 'startUur', label: 'Start', type: 'time' },
+          { name: 'eindUur', label: 'Einde', type: 'time' }
+        ]},
+        { name: 'locatieId', label: 'Zaal', type: 'select', options: [] }, // Wordt dynamisch gevuld in App.jsx
+        { name: 'status', label: 'Ingepland', type: 'status' }
+      ] : [
+        // VELDEN VOOR AFWIJKINGEN
+        { name: 'vasteId', label: 'Oorspronkelijke Training', type: 'select', options: filteredVasteTrainingen.map(v => {
+            const g = filteredGroepen.find(gr => gr.id === v.groepId);
+            return { value: v.id, label: `${g?.naam} (${v.dag} ${v.startUur})` };
+        })},
+        { name: 'datum', label: 'Datum Afwijking', type: 'date' },
+        { name: 'status', label: 'Status', type: 'select', options: [
+            { value: 'te behandelen', label: 'Te behandelen' },
+            { value: 'geannuleerd', label: 'Geannuleerd' },
+            { value: 'gewijzigd', label: 'Gewijzigd' }
+        ]},
+        { name: 'locatieId', label: 'Nieuwe Zaal (indien gewijzigd)', type: 'select', options: [] }, // Dynamisch
+        { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel' }
+      ]
+    }
 });
