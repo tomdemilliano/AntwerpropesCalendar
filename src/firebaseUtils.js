@@ -129,3 +129,37 @@ export const handleDeleteVasteTraining = async (item, trainingen, isIngeplandFn)
     }
   }
 };
+
+export const handleResolveUitzondering = async (uitzondering, actie, nieuweLocatieId = null) => {
+  const batch = writeBatch(db);
+  const uitzRef = doc(db, "planningUitzonderingen", uitzondering.id);
+
+  // 1. Zoek de specifieke training in de kalender (planning collectie)
+  const q = query(
+    collection(db, "planning"),
+    where("datum", "==", uitzondering.datum),
+    where("groepId", "==", uitzondering.groepId)
+  );
+  const snap = await getDocs(q);
+
+  if (actie === 'annuleren') {
+    batch.update(uitzRef, { status: 'geannuleerd' });
+    snap.forEach(d => {
+      batch.update(d.ref, { status: 'GEANNULEERD', label: '❌ Geannuleerd' });
+    });
+  } else if (actie === 'verplaatsen') {
+    batch.update(uitzRef, { 
+      status: 'verplaatst', 
+      locatieId: nieuweLocatieId 
+    });
+    snap.forEach(d => {
+      batch.update(d.ref, { 
+        locatieId: nieuweLocatieId,
+        status: 'GEWIJZIGD',
+        opmerking: 'Zaalwijziging via beheer'
+      });
+    });
+  }
+
+  await batch.commit();
+};
