@@ -24,6 +24,13 @@ const App = () => {
   const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [newTraining, setNewTraining] = useState({
+    datum: '',
+    groepId: '',
+    coachId: '',
+    uren: '',
+    locatieId: ''
+  });
   
   // State voor het type uitzondering bij toevoegen
   const [uitzonderingType, setUitzonderingType] = useState('onbeschikbaar');
