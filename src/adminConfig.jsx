@@ -123,19 +123,46 @@ vasteTrainingen: {
         { name: 'locatieId', label: 'Zaal', type: 'select', options: [] }, // Wordt dynamisch gevuld in App.jsx
         { name: 'status', label: 'Ingepland', type: 'status' }
       ] : [
-        // VELDEN VOOR AFWIJKINGEN
-        { name: 'vasteId', label: 'Oorspronkelijke Training', type: 'select', options: filteredVasteTrainingen.map(v => {
+  // 1. Informatieve velden (readonly in de modal via hideInModal indien gewenst, 
+  // maar hier laten we ze staan zodat de planner ziet wat hij bewerkt)
+        { 
+          name: 'vasteId', 
+          label: 'Oorspronkelijke Training', 
+          type: 'select', 
+          options: filteredVasteTrainingen.map(v => {
             const g = filteredGroepen.find(gr => gr.id === v.groepId);
             return { value: v.id, label: `${g?.naam} (${v.dag} ${v.startUur})` };
-        })},
+          })
+        },
         { name: 'datum', label: 'Datum Afwijking', type: 'date' },
-        { name: 'status', label: 'Status', type: 'select', options: [
-            { value: 'te behandelen', label: 'Te behandelen' },
-            { value: 'geannuleerd', label: 'Geannuleerd' },
-            { value: 'gewijzigd', label: 'Gewijzigd' }
-        ]},
-        { name: 'locatieId', label: 'Nieuwe Zaal (indien gewijzigd)', type: 'select', options: [] }, // Dynamisch
-        { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel' }
+        { name: 'reden', label: 'Reden (waarom onbeschikbaar)', type: 'text' },
+
+  // 2. De Actie-velden
+        { 
+          name: 'status', 
+          label: 'Status/Actie', 
+          type: 'select', 
+          options: [
+            { value: 'te behandelen', label: 'Nog te behandelen' },
+            { value: 'geannuleerd', label: 'Training annuleren' },
+            { value: 'gewijzigd', label: 'Verplaatsen naar andere zaal/uur' }
+          ]
+        },
+
+  // 3. Velden voor de wijziging (enkel in te vullen als status 'gewijzigd' is)
+        { 
+          name: 'nieuweLocatieId', 
+          label: 'Nieuwe Zaal (indien verplaatst)', 
+          type: 'select', 
+          options: locaties.map(l => ({ value: l.id, label: l.naam })) 
+        },
+        { 
+    isRow: true, 
+          fields: [
+            { name: 'aangepastStartUur', label: 'Nieuw Beginuur', type: 'time' },
+            { name: 'aangepastEindUur', label: 'Nieuw Einduur', type: 'time' }
+          ]
+        }
       ]
     }
 });
