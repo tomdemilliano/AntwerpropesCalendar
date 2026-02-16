@@ -62,20 +62,6 @@ const AdminTable = ({
       return value === 'extra' ? 'Extra zaal' : 'Onbeschikbaar';
     }
     
-    // NIEUW: Specifieke weergave voor de datum kolom in Zaaluitzonderingen met icoontjes
-/*    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
-      return (
-        <span className="flex items-center gap-2">
-          {item.type === 'extra' ? (
-            <PlusCircle size={14} className="text-emerald-500" />
-          ) : (
-            <CalendarX size={14} className="text-red-500" />
-          )}
-          {formatDate(value)}
-        </span>
-      );
-    }*/
-
     // BEHOUD ORIGINELE STATUS LOGICA (Kleine icoontjes voor vaste planning ipv grote tags)
     if (field.type === 'status') {
       if (adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning') {
