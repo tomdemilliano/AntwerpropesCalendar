@@ -255,7 +255,7 @@ if (editingItem) {
       const zelfdeLocatie = vt.locatieId === data.locatieId;
       const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
       
-      return hetzelfdeDag && hetzelfdeLocatie && overlapt;
+      return zelfdeDag && zelfdeLocatie && overlapt;
     });
 
     // 3. Maak voor elke gevonden training een rij aan in 'afwijkingen'
