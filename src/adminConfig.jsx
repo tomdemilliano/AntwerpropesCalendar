@@ -106,7 +106,6 @@ beschikbareZalen: {
       { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
       { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
     ])  
-  ]
 },
 
 vasteTrainingen: {
