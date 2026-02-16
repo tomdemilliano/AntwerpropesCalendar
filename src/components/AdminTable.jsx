@@ -15,101 +15,164 @@ const AdminTable = ({
 
   const renderCellContent = (item, field) => {
     const value = item[field.name];
+
+    // Specifieke logica voor Zaalplanning Uitzonderingen Grid consistentie
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
+      // Zoek de gekoppelde zaal op als het een annulatie is op basis van een zaalId
+      const linkedZaal = item.zaalId ? beschikbareZalen.find(z => z.id === item.zaalId) : null;
+
+      if (field.name === 'datum') {
+        return (
+          <div className="flex items-center gap-2">
+            {item.type === 'extra' ? (
+              <PlusCircle size={16} className="text-emerald-500" />
+            ) : (
+              <CalendarX size={16} className="text-rose-500" />
+            )}
+            <span className="font-bold">{value}</span>
+          </div>
+        );
+      }
+
+      if (field.name === 'startUur') return value || linkedZaal?.startUur || '-';
+      if (field.name === 'eindUur') return value || linkedZaal?.eindUur || '-';
+      if (field.name === 'zaaldelen') return value || linkedZaal?.zaaldelen || '-';
+      if (field.name === 'locatieId') {
+        const locId = value || linkedZaal?.locatieId;
+        return locaties.find(l => l.id === locId)?.naam || 'Onbekend';
+      }
+      if (field.name === 'reden') return value || (item.type === 'onbeschikbaar' ? 'Zaal onbeschikbaar' : '-');
+    }
+
+    // Standaard weergave logica voor andere secties
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
     if (field.name === 'locatieId') return locaties.find(l => l.id === value)?.naam || 'Onbekend';
+    
     if (field.name === 'vasteId') {
         const v = vasteTrainingen.find(vt => vt.id === value);
         if (!v) return 'Onbekend';
         const g = groepen.find(gr => gr.id === v.groepId);
-        return `${g?.naam} (${v.dag} ${v.startUur})`;
+        return `${g?.naam || 'Groep'} (${v.dag})`;
     }
-    if (field.name === 'zaalId') {
-        const z = beschikbareZalen.find(bz => bz.id === value);
-        if (!z) return 'Onbekend';
-        return `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag})`;
+
+    if (field.name === 'coachIds') {
+      if (!value || value.length === 0) return 'Geen coaches';
+      return value.map(id => coaches.find(c => c.id === id)?.naam).filter(Boolean).join(', ');
     }
-    if (field.name === 'coachIds' && Array.isArray(value)) {
-      return value.map(id => coaches.find(c => c.id === id)?.voornaam).join(', ');
-    }
-    if (field.type === 'number' && (field.name === 'uurtarief' || field.name === 'huurprijs')) return `€ ${value}`;
-    
-    // Status voor Vaste Trainingen
-    if (field.type === 'status' && adminSection === 'vasteTrainingen') {
-      return isIngepland(item) ? (
-        <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] uppercase"><CheckCircle2 size={14}/> Ja</span>
-      ) : (
-        <span className="text-slate-300 font-bold text-[10px] uppercase">Nee</span>
+
+    if (field.name === 'status') {
+      const isOk = isIngepland(item);
+      return (
+        <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+          isOk ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+        }`}>
+          {isOk ? <CheckCircle2 size={12}/> : <AlertCircle size={12}/>}
+          {isOk ? 'Ingepland' : 'Niet ingepland'}
+        </span>
       );
     }
 
-    // Status voor Afwijkingen
-    if (field.name === 'status' && adminSection === 'afwijkingen') {
-        if (value === 'geannuleerd') return <span className="flex items-center gap-1 text-red-600 font-bold text-[10px] uppercase"><XCircle size={14}/> Geannuleerd</span>;
-        if (value === 'gewijzigd') return <span className="flex items-center gap-1 text-indigo-600 font-bold text-[10px] uppercase"><Edit2 size={14}/> Gewijzigd</span>;
-        return <span className="flex items-center gap-1 text-amber-500 font-bold text-[10px] uppercase"><AlertCircle size={14}/> Te behandelen</span>;
+    if (field.name === 'kleur') {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: value }}></div>
+          <span className="text-xs font-mono">{value}</span>
+        </div>
+      );
     }
 
-    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
-      return <span>{item.type === 'extra' ? '➕ ' : '🚫 '} {value}</span>;
-    }
     return value;
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 bg-white">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">{currentSection.title}</h2>
-          {(adminSection === 'vasteTrainingen' || adminSection === 'groepen' || adminSection === 'beschikbareZalen' || adminSection === 'afwijkingen') && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-              <Filter size={14} className="text-indigo-600" />
-              <span>Actief seizoen:</span>
-              <select value={activeSeasonId} onChange={(e) => setActiveSeasonId(e.target.value)} className="bg-transparent font-bold text-indigo-600 outline-none border-b border-indigo-200">
-                {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
-              </select>
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
+            {currentSection.icon}
+            {currentSection.title}
+          </h2>
+          
+          {adminSection === 'beschikbareZalen' && (
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setZaalTab('weekplanning')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${zaalTab === 'weekplanning' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                Vaste Planning
+              </button>
+              <button 
+                onClick={() => setZaalTab('uitzonderingen')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${zaalTab === 'uitzonderingen' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                Uitzonderingen
+              </button>
+            </div>
+          )}
+
+          {adminSection === 'vasteTrainingen' && (
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setVasteTab('vaste-planning')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'vaste-planning' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                Wekelijkse Planning
+              </button>
+              <button 
+                onClick={() => setVasteTab('afwijkingen')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'afwijkingen' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+              >
+                Afwijkingen
+              </button>
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex items-center gap-2">
           {adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning' && (
-            <button onClick={() => setShowBulkScheduleModal(true)} className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-200 transition text-sm font-bold">
-              <CalendarCheck size={16}/> Trainingsmomenten inplannen
+            <button 
+              onClick={() => setShowBulkScheduleModal(true)}
+              className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-100 transition-all border border-indigo-100"
+            >
+              <CalendarCheck size={18}/> Bulk Inplanning
             </button>
           )}
+
           {adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (
-            <>
-              <button onClick={() => { setEditingItem(null); setUitzonderingType('extra'); setShowAdminModal(true); }} className="bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-emerald-700 transition text-sm font-bold"><PlusCircle size={16}/> Extra reservatie</button>
-              <button onClick={() => { setEditingItem(null); setUitzonderingType('onbeschikbaar'); setShowAdminModal(true); }} className="bg-red-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-700 transition text-sm font-bold"><CalendarX size={16}/> Zaal onbeschikbaar</button>
-            </>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { setUitzonderingType('extra'); setEditingItem(null); setShowAdminModal(true); }}
+                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+              >
+                <PlusCircle size={18}/> Extra Reservatie
+              </button>
+              <button 
+                onClick={() => { setUitzonderingType('onbeschikbaar'); setEditingItem(null); setShowAdminModal(true); }}
+                className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
+              >
+                <CalendarX size={18}/> Zaal Onbeschikbaar
+              </button>
+            </div>
           ) : (
-            <button onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setTempVasteTraining({dag:'', startUur:'', eindUur:'', datum:''}); setShowAdminModal(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-600 transition text-sm font-bold"><Plus size={16}/> Toevoegen</button>
+            <button 
+              onClick={() => { setEditingItem(null); setSelectedCoachIds([]); setTempVasteTraining({ dag: '', startUur: '', eindUur: '' }); setShowAdminModal(true); }}
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+            >
+              <Plus size={18}/> Toevoegen
+            </button>
           )}
         </div>
       </div>
 
-      {adminSection === 'vasteTrainingen' && (
-        <div className="flex gap-4 mb-6 border-b border-slate-100">
-          <button onClick={() => setVasteTab('vaste-planning')} className={`pb-2 px-4 text-sm font-bold transition-all ${vasteTab === 'vaste-planning' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}>Vaste planning</button>
-          <button onClick={() => setVasteTab('afwijkingen')} className={`pb-2 px-4 text-sm font-bold transition-all ${vasteTab === 'afwijkingen' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}>Afwijkingen</button>
-        </div>
-      )}
-
-      {adminSection === 'beschikbareZalen' && (
-        <div className="flex gap-4 mb-6 border-b border-slate-100">
-          <button onClick={() => setZaalTab('weekplanning')} className={`pb-2 px-4 text-sm font-bold transition-all ${zaalTab === 'weekplanning' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}>Vaste planning</button>
-          <button onClick={() => setZaalTab('uitzonderingen')} className={`pb-2 px-4 text-sm font-bold transition-all ${zaalTab === 'uitzonderingen' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400'}`}>Uitzonderingen</button>
-        </div>
-      )}
-
-      <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-slate-50/50 border-b border-slate-100">
               {currentSection.fields.map((f, i) => {
-                if (f.isRow) return f.fields.map(sub => <th key={sub.name} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sub.label}</th>);
-                return <th key={f.name || i} className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</th>;
+                if (f.isRow) return f.fields.map(sub => <th key={sub.name} className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{sub.label}</th>);
+                return <th key={f.name || i} className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</th>;
               })}
-              <th className="px-4 py-3 text-right"></th>
+              <th className="px-4 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Acties</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -129,7 +192,7 @@ const AdminTable = ({
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="100%" className="px-4 py-12 text-center text-slate-400 text-sm">Geen gegevens gevonden.</td></tr>
+              <tr><td colSpan="100%" className="px-4 py-12 text-center text-slate-400 font-medium italic">Geen gegevens gevonden...</td></tr>
             )}
           </tbody>
         </table>
