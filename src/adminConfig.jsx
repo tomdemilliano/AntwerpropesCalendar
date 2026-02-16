@@ -79,6 +79,16 @@ beschikbareZalen: {
   ] : [
     // Gelijkgetrokken velden voor zowel 'extra' als 'onbeschikbaar'
     { name: 'datum', label: 'Datum', type: 'date' },
+    { name: 'type', label 'Type', type: 'text' }, 
+      ...(uitzonderingType === 'onbeschikbaar' ? [{
+      name: 'vastePlanningId',
+      label: 'Kopieer van vaste planning',
+      type: 'select',
+      options: filteredBeschikbareZalen.map(v => ({
+        value: v.id,
+        label: `${v.locatieId} - ${v.dag}` // Locatie naam moet je hier evt. matchen
+      }))
+    }] : []),    
     { isRow: true, fields: [
       { name: 'startUur', label: 'Beginuur', type: 'time' }, 
       { name: 'eindUur', label: 'Einduur', type: 'time' }
