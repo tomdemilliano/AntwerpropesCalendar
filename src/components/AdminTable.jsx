@@ -178,19 +178,6 @@ const AdminTable = ({
             {currentSection.data.length > 0 ? (
               currentSection.data.map(item => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                  {currentSection.fields.map((f, i) => {
-                    if (f.isRow) return f.fields.map(sub => <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">{renderCellContent(item, sub)}</td>);
-                    return <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">{renderCellContent(item, f)}</td>;
-                  })}
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
-                      <button onClick={() => adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning' ? handleDeleteVasteTraining(item, trainingen, isIngepland) : (window.confirm("Verwijderen?") && deleteDoc(doc(db, currentSection.collection, item.id)))} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                   {currentSection.fields.filter(f => !f.hideInTable).map((f, i) => {
                     if (f.isRow) return f.fields.filter(sf => !sf.hideInTable).map(sub => (
                       <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">
