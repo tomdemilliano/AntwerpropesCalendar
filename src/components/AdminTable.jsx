@@ -56,6 +56,16 @@ const AdminTable = ({
         if (!v) return 'Onbekend';
         const g = groepen.find(gr => gr.id === v.groepId);
         return `${g?.naam || 'Groep'} (${v.dag} ${v.startUur})`;
+
+        const vt = vasteTrainingen.find(v => v.id === value);
+        if (!vt) return <span className="text-slate-400">-</span>;
+        const groep = groepen.find(g => g.id === vt.groepId);
+        return (
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-800">{groep?.naam || 'Onbekende groep'}</span>
+            <span className="text-[10px] text-slate-500">{vt.dag} {vt.startUur}-{vt.eindUur}</span>
+          </div>
+        );
     }
     // Voor de tekstuele weergave van de nieuwe kolom
     if (field.name === 'type' && adminSection === 'beschikbareZalen') {
@@ -80,9 +90,33 @@ const AdminTable = ({
         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${styles[status]}`}>
           {status}
         </span>
-      );
+      );    
     }
 
+    if (field.name === 'status') {
+        if (value === 'te behandelen') {
+          return (
+            <span className="flex items-center gap-1.5 text-red-600 font-bold px-2 py-1 bg-red-100 rounded-lg text-[10px] uppercase tracking-wider w-fit">
+              <AlertCircle size={14} /> Te behandelen
+            </span>
+          );
+        }
+        if (value === 'geannuleerd') {
+          return (
+            <span className="flex items-center gap-1.5 text-slate-500 font-bold px-2 py-1 bg-slate-100 rounded-lg text-[10px] uppercase tracking-wider w-fit">
+              <XCircle size={14} /> Geannuleerd
+            </span>
+          );
+        }
+        if (value === 'gewijzigd') {
+          return (
+            <span className="flex items-center gap-1.5 text-emerald-600 font-bold px-2 py-1 bg-emerald-100 rounded-lg text-[10px] uppercase tracking-wider w-fit">
+              <CheckCircle2 size={14} /> Gewijzigd
+            </span>
+          );
+        }
+      }    
+    
     if (field.type === 'number' && (field.name === 'uurtarief' || field.name === 'huurprijs')) return `€ ${value}`;
     
     return value;
@@ -177,7 +211,7 @@ const AdminTable = ({
           <tbody className="divide-y divide-slate-50">
             {currentSection.data.length > 0 ? (
               currentSection.data.map(item => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={item.id} className={`group transition-colors border-b border-slate-50 ${item.status === 'te behandelen' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
                   {currentSection.fields.filter(f => !f.hideInTable).map((f, i) => {
                     if (f.isRow) return f.fields.filter(sf => !sf.hideInTable).map(sub => (
                       <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">
