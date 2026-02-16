@@ -79,8 +79,8 @@ beschikbareZalen: {
   ] : [
     // Gelijkgetrokken velden voor zowel 'extra' als 'onbeschikbaar'
     { name: 'datum', label: 'Datum', type: 'date' },
-    { name: 'type', label 'Type', type: 'text' }, 
-      (uitzonderingType === 'onbeschikbaar' ? [{
+    { name: 'type', label: 'Type', type: 'text' }, 
+      ...(uitzonderingType === 'onbeschikbaar' ? [{
       name: 'vastePlanningId',
       label: 'Kopieer van vaste planning',
       type: 'select',
