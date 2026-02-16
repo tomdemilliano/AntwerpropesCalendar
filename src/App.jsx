@@ -168,6 +168,9 @@ const App = () => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     const currentColl = currentSection.collection;
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
+      data.type = uitzonderingType; // 'extra' of 'onbeschikbaar'
+    }
     
     if (currentColl === 'vasteTrainingen' || currentColl === 'groepen') data.coachIds = selectedCoachIds;
     if (currentColl === 'groepen') {
