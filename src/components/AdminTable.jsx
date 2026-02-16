@@ -16,11 +16,15 @@ const AdminTable = ({
   const renderCellContent = (item, field) => {
     const value = item[field.name];
     
-    // Relaties mappen naar namen
+    // Behoud originele logica voor ID lookups
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
     if (field.name === 'locatieId') return locaties.find(l => l.id === value)?.naam || 'Onbekend';
     
-    // Vaste training lookup voor de afwijkingen grid
+    // Behoud originele logica voor Coach namen (voorkomt tonen van keys)
+    if (field.name === 'coachIds' && Array.isArray(value)) {
+      return value.map(id => coaches.find(c => c.id === id)?.naam).filter(Boolean).join(', ') || 'Geen';
+    }
+
     if (field.name === 'vasteId') {
         const v = vasteTrainingen.find(vt => vt.id === value);
         if (!v) return 'Onbekend';
@@ -28,7 +32,7 @@ const AdminTable = ({
         return `${g?.naam || 'Groep'} (${v.dag} ${v.startUur})`;
     }
 
-    // Specifieke weergave voor de datum kolom in Zaaluitzonderingen met icoontjes
+    // NIEUW: Specifieke weergave voor de datum kolom in Zaaluitzonderingen met icoontjes
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
       return (
         <span className="flex items-center gap-2">
@@ -42,40 +46,34 @@ const AdminTable = ({
       );
     }
 
-    // Status weergave (voor afwijkingen/trainingen)
+    // BEHOUD ORIGINELE STATUS LOGICA (Kleine icoontjes voor vaste planning ipv grote tags)
     if (field.type === 'status') {
+      if (adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning') {
+        return isIngepland(item) ? 
+          <CheckCircle2 size={18} className="text-emerald-500" /> : 
+          <AlertCircle size={18} className="text-amber-500" />;
+      }
+      // Status voor afwijkingen
       const status = value || 'te behandelen';
       const styles = {
-        'goedgekeurd': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-        'afgekeurd': 'bg-red-50 text-red-700 border-red-100',
-        'te behandelen': 'bg-amber-50 text-amber-700 border-amber-100'
-      };
-      const icons = {
-        'goedgekeurd': <CheckCircle2 size={12}/>,
-        'afgekeurd': <XCircle size={12}/>,
-        'te behandelen': <AlertCircle size={12}/>
+        'goedgekeurd': 'bg-emerald-50 text-emerald-700',
+        'afgekeurd': 'bg-red-50 text-red-700',
+        'te behandelen': 'bg-amber-50 text-amber-700'
       };
       return (
-        <span className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider w-fit ${styles[status]}`}>
-          {icons[status]} {status}
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${styles[status]}`}>
+          {status}
         </span>
       );
     }
 
-    // Valuta weergave
-    if (field.type === 'number' && (field.name === 'uurtarief' || field.name === 'huurprijs')) {
-      return value ? `€ ${value}` : '€ 0';
-    }
-
-    // Fallback voor lege optionele velden zoals 'reden'
-    if (field.name === 'reden' && !value) return <span className="text-slate-300 italic">Geen reden</span>;
-
+    if (field.type === 'number' && (field.name === 'uurtarief' || field.name === 'huurprijs')) return `€ ${value}`;
+    
     return value;
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
-      {/* Header sectie van de tabel */}
+    <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden w-full">
       <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
@@ -83,7 +81,6 @@ const AdminTable = ({
             {currentSection.title}
           </h2>
 
-          {/* Tab switch voor de Zaalplanning */}
           {adminSection === 'beschikbareZalen' && (
             <div className="flex bg-white p-1 rounded-xl border border-slate-200 ml-4">
               <button onClick={() => setZaalTab('weekplanning')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${zaalTab === 'weekplanning' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Vaste Weekplanning</button>
@@ -91,7 +88,6 @@ const AdminTable = ({
             </div>
           )}
 
-          {/* Tab switch voor Vaste Trainingen / Afwijkingen */}
           {adminSection === 'vasteTrainingen' && (
             <div className="flex bg-white p-1 rounded-xl border border-slate-200 ml-4">
               <button onClick={() => setVasteTab('vaste-planning')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'vaste-planning' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Vaste Planning</button>
@@ -101,7 +97,6 @@ const AdminTable = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Seizoensfilter */}
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
             <Filter size={14} className="text-slate-400" />
             <select 
@@ -114,7 +109,6 @@ const AdminTable = ({
             </select>
           </div>
 
-          {/* Actie knoppen */}
           {adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning' && (
             <button 
               onClick={() => setShowBulkScheduleModal(true)}
@@ -150,7 +144,6 @@ const AdminTable = ({
         </div>
       </div>
 
-      {/* Tabel Body */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -167,47 +160,19 @@ const AdminTable = ({
               currentSection.data.map(item => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                   {currentSection.fields.map((f, i) => {
-                    if (f.isRow) return f.fields.map(sub => (
-                      <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">
-                        {renderCellContent(item, sub)}
-                      </td>
-                    ));
-                    return (
-                      <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">
-                        {renderCellContent(item, f)}
-                      </td>
-                    );
+                    if (f.isRow) return f.fields.map(sub => <td key={sub.name} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">{renderCellContent(item, sub)}</td>);
+                    return <td key={f.name || i} className="px-4 py-3 text-sm text-slate-600 font-medium whitespace-nowrap">{renderCellContent(item, f)}</td>;
                   })}
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button 
-                        onClick={() => openEditModal(item)} 
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        <Edit2 size={14}/>
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning') {
-                            handleDeleteVasteTraining(item, trainingen, isIngepland);
-                          } else if (window.confirm("Weet u zeker dat u dit item wilt verwijderen?")) {
-                            deleteDoc(doc(db, currentSection.collection, item.id));
-                          }
-                        }} 
-                        className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 size={14}/>
-                      </button>
+                      <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
+                      <button onClick={() => adminSection === 'vasteTrainingen' && vasteTab === 'vaste-planning' ? handleDeleteVasteTraining(item, trainingen, isIngepland) : (window.confirm("Verwijderen?") && deleteDoc(doc(db, currentSection.collection, item.id)))} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>
               ))
             ) : (
-              <tr>
-                <td colSpan="100%" className="px-4 py-12 text-center text-slate-400 text-sm italic">
-                  Geen gegevens gevonden voor deze selectie.
-                </td>
-              </tr>
+              <tr><td colSpan="100%" className="px-4 py-12 text-center text-slate-400 text-sm italic">Geen gegevens gevonden.</td></tr>
             )}
           </tbody>
         </table>
