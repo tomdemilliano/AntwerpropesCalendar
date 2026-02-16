@@ -23,6 +23,21 @@ const AdminTable = ({
   const renderCellContent = (item, field) => {
     const value = item[field.name];
 
+    // 1. EERST: Specifieke weergave voor de uitzonderingen (met icoontjes)
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
+      return (
+        <span className="flex items-center gap-2 font-semibold">
+          {item.type === 'extra' ? (
+            <PlusCircle size={14} className="text-emerald-500" />
+          ) : (
+            <CalendarX size={14} className="text-red-500" />  
+          )}
+          {formatDate(value)}
+        </span>
+      );
+    }
+
+    // 2. DAARNA: Algemene datum formattering voor andere velden
     if (field.type === 'date' && value) {
       return formatDate(value);
     }
@@ -48,7 +63,7 @@ const AdminTable = ({
     }
     
     // NIEUW: Specifieke weergave voor de datum kolom in Zaaluitzonderingen met icoontjes
-    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
+/*    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
       return (
         <span className="flex items-center gap-2">
           {item.type === 'extra' ? (
@@ -59,7 +74,7 @@ const AdminTable = ({
           {formatDate(value)}
         </span>
       );
-    }
+    }*/
 
     // BEHOUD ORIGINELE STATUS LOGICA (Kleine icoontjes voor vaste planning ipv grote tags)
     if (field.type === 'status') {
