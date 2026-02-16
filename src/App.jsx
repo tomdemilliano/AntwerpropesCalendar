@@ -13,6 +13,11 @@ import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
 import { getSectionsConfig } from './adminConfig';
 
+const checkOverlap = (start1, eind1, start2, eind2) => {
+  // Returnt true als de tijden elkaar overlappen
+  return start1 < eind2 && start2 < eind1;
+};
+
 const App = () => {
   // --- UI STATE ---
   const [activeTab, setActiveTab] = useState('kalender'); 
@@ -222,8 +227,57 @@ const App = () => {
     }
     if (currentColl === 'zaalUitzonderingen' && !editingItem) data.type = uitzonderingType;
 
-    if (editingItem) await updateDoc(doc(db, currentColl, editingItem.id), data);
-    else await addDoc(collection(db, currentColl), data);
+//    if (editingItem) await updateDoc(doc(db, currentColl, editingItem.id), data);
+//    else await addDoc(collection(db, currentColl), data);
+
+    let newDocId;
+    
+if (editingItem) {
+  await updateDoc(doc(db, currentColl, editingItem.id), data);
+  newDocId = editingItem.id;
+  // Optioneel: Je zou hier ook logica kunnen toevoegen voor updates, 
+  // maar laten we beginnen met het aanmaken (nieuwe items).
+} else {
+  const docRef = await addDoc(collection(db, currentColl), data);
+  newDocId = docRef.id;
+
+  // --- START NIEUWE LOGICA VOOR AFWIJKINGEN ---
+  if (currentColl === 'zaalUitzonderingen' && uitzonderingType === 'onbeschikbaar') {
+    // 1. Bepaal de weekdag van de datum van de uitzondering
+    const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+    const geselecteerdeDatum = new Date(data.datum);
+    const dagNaam = days[geselecteerdeDatum.getDay()];
+
+    // 2. Filter de vaste jaarplanning
+    // We zoeken items op dezelfde dag, in dezelfde zaal, die qua uren overlappen
+    const overlappendeTrainingen = filteredVasteTrainingen.filter(vt => {
+      constzelfdeDag = vt.dag === dagNaam;
+      constzelfdeLocatie = vt.locatieId === data.locatieId;
+      const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
+      
+      return hetzelfdeDag && hetzelfdeLocatie && overlapt;
+    });
+
+    // 3. Maak voor elke gevonden training een rij aan in 'afwijkingen'
+    for (const vt of overlappendeTrainingen) {
+      await addDoc(collection(db, 'afwijkingen'), {
+        seizoenId: activeSeasonId,
+        vasteId: vt.id,
+        datum: data.datum, // De datum van de zaal-onbeschikbaarheid
+        groepId: vt.groepId,
+        startUur: vt.startUur,
+        eindUur: vt.eindUur,
+        locatieId: vt.locatieId,
+        status: 'te behandelen',
+        reden: data.reden || 'Zaal onbeschikbaar',
+        nieuweLocatieId: '',
+        aangepastStartUur: '',
+        aangepastEindUur: ''
+      });
+    }
+  }
+  // --- EINDE NIEUWE LOGICA ---
+}
     
     setShowAdminModal(false);
     setEditingItem(null);
