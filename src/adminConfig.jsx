@@ -62,6 +62,7 @@ export const getSectionsConfig = (
       { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
     ]
   },
+
   beschikbareZalen: {
     title: 'Zaalplanning',
     collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
@@ -76,17 +77,19 @@ export const getSectionsConfig = (
         { name: 'eindUur', label: 'Einduur', type: 'time' }
       ]},
       { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-    ] : (uitzonderingType === 'onbeschikbaar' ? [
-      { name: 'datum', label: 'Datum', type: 'date' },
-      { name: 'zaalId', label: 'Betreffende Vaste Planning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ value: z.id, label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` })) },
-      { name: 'reden', label: 'Reden van onbeschikbaarheid', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' }
     ] : [
       { name: 'datum', label: 'Datum', type: 'date' },
-      { isRow: true, fields: [{ name: 'startUur', label: 'Beginuur', type: 'time' }, { name: 'eindUur', label: 'Einduur', type: 'time' }] },
+      { isRow: true, fields: [
+        { name: 'startUur', label: 'Beginuur', type: 'time' },
+        { name: 'eindUur', label: 'Einduur', type: 'time' }
+      ]},
       { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
       { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-    ])
+      { name: 'reden', label: 'Reden', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' },
+      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' },
+      // Verborgen veld voor de dropdown logica in de modal
+      { name: 'zaalId', label: 'Betreffende Vaste Planning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ value: z.id, label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` })), hideInTable: true }
+    ]
   },
 
 vasteTrainingen: {
