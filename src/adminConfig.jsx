@@ -14,27 +14,15 @@ export const getSectionsConfig = (
   filteredAfwijkingen, 
   vasteTab
 ) => ({
-  groepen: { 
-    title: 'Trainingsgroepen', 
-    collection: 'groepen', 
-    icon: <Users size={18} />, 
-    data: filteredGroepen, 
+  seizoenen: { 
+    title: 'Seizoenen', 
+    collection: 'seizoenen', 
+    icon: <CalendarDays size={18} />, 
+    data: seizoenen, 
     fields: [
-      { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
-      { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
-      { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
-      { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
-    ]
-  },
-  coaches: { 
-    title: 'Coaches', 
-    collection: 'coaches', 
-    icon: <User size={18} />, 
-    data: coaches, 
-    fields: [
-      { name: 'voornaam', label: 'Voornaam', type: 'text', placeholder: 'Jan' },
-      { name: 'achternaam', label: 'Achternaam', type: 'text', placeholder: 'Janssen' },
-      { name: 'uurtarief', label: 'Uurtarief (€)', type: 'number', placeholder: '0.00' }
+      { name: 'naam', label: 'Naam Seizoen', type: 'text', placeholder: 'bv. 2025-2026' },
+      { isRow: true, fields: [{ name: 'startDatum', label: 'Startdatum Seizoen', type: 'date' }, { name: 'eindDatum', label: 'Einddatum Seizoen', type: 'date' }] },
+      { isRow: true, fields: [{ name: 'startTrainingen', label: 'Start Trainingen', type: 'date' }, { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }] }
     ]
   },
   locaties: { 
@@ -50,8 +38,31 @@ export const getSectionsConfig = (
       { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
     ]
   },
+  coaches: { 
+    title: 'Coaches', 
+    collection: 'coaches', 
+    icon: <User size={18} />, 
+    data: coaches, 
+    fields: [
+      { name: 'voornaam', label: 'Voornaam', type: 'text', placeholder: 'Jan' },
+      { name: 'achternaam', label: 'Achternaam', type: 'text', placeholder: 'Janssen' },
+      { name: 'uurtarief', label: 'Uurtarief (€)', type: 'number', placeholder: '0.00' }
+    ]
+  },
+  groepen: { 
+    title: 'Trainingsgroepen', 
+    collection: 'groepen', 
+    icon: <Users size={18} />, 
+    data: filteredGroepen, 
+    fields: [
+      { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
+      { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
+      { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
+      { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
+    ]
+  },
   beschikbareZalen: {
-    title: 'Beschikbare zalen',
+    title: 'Zaalplanning',
     collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
     icon: <Building2 size={18} />,
     data: zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen,
@@ -76,20 +87,11 @@ export const getSectionsConfig = (
       { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
     ])
   },
-  seizoenen: { 
-    title: 'Seizoenen', 
-    collection: 'seizoenen', 
-    icon: <CalendarDays size={18} />, 
-    data: seizoenen, 
-    fields: [
-      { name: 'naam', label: 'Naam Seizoen', type: 'text', placeholder: 'bv. 2025-2026' },
-      { isRow: true, fields: [{ name: 'startDatum', label: 'Startdatum Seizoen', type: 'date' }, { name: 'eindDatum', label: 'Einddatum Seizoen', type: 'date' }] },
-      { isRow: true, fields: [{ name: 'startTrainingen', label: 'Start Trainingen', type: 'date' }, { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }] }
-    ]
-  },
+
 vasteTrainingen: {
-      title: 'Wekelijkse planning',
+      title: 'Jaarplanning',
       collection: vasteTab === 'vaste-planning' ? 'vasteTrainingen' : 'afwijkingen',
+      icon: <Clock size={18} />,    
       data: vasteTab === 'vaste-planning' ? filteredVasteTrainingen : filteredAfwijkingen,
       fields: vasteTab === 'vaste-planning' ? [
         { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
