@@ -251,8 +251,8 @@ if (editingItem) {
     // 2. Filter de vaste jaarplanning
     // We zoeken items op dezelfde dag, in dezelfde zaal, die qua uren overlappen
     const overlappendeTrainingen = filteredVasteTrainingen.filter(vt => {
-      constzelfdeDag = vt.dag === dagNaam;
-      constzelfdeLocatie = vt.locatieId === data.locatieId;
+      const zelfdeDag = vt.dag === dagNaam;
+      const zelfdeLocatie = vt.locatieId === data.locatieId;
       const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
       
       return hetzelfdeDag && hetzelfdeLocatie && overlapt;
