@@ -1,6 +1,13 @@
 import React from 'react';
 import { Filter, CalendarCheck, PlusCircle, CalendarX, Plus, Edit2, Trash2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const [year, month, day] = dateString.split('-');
+  if (!year || !month || !day) return dateString; // Fallback als het geen YYYY-MM-DD is
+  return `${day}-${month}-${year}`;
+};
+
 const AdminTable = ({ 
   adminSection, currentSection, activeSeasonId, setActiveSeasonId, seizoenen, 
   zaalTab, setZaalTab, vasteTab, setVasteTab, setEditingItem, setUitzonderingType, setShowAdminModal, 
@@ -15,6 +22,10 @@ const AdminTable = ({
 
   const renderCellContent = (item, field) => {
     const value = item[field.name];
+
+    if (field.type === 'date' && value) {
+      return formatDate(value);
+    }
     
     // Behoud originele logica voor ID lookups
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
