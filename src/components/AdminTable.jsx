@@ -26,23 +26,6 @@ const AdminTable = ({
     if (field.type === 'date' && value) {
       return formatDate(value);
     }
-
-    if (field.name === 'datum' && adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
-      return (
-        <div className="flex items-center gap-2">
-          {item.type === 'extra' ? (
-            <PlusCircle size={14} className="text-green-500" />
-          ) : (
-            <XCircle size={14} className="text-red-500" />
-          )}
-          {formatDate(value)}
-        </div>
-      );
-    }
-
-    if (field.name === 'type' && adminSection === 'beschikbareZalen') {
-      return value === 'extra' ? 'Extra reservatie' : 'Zaal onbeschikbaar';
-    }
     
     // Behoud originele logica voor ID lookups
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
