@@ -62,32 +62,33 @@ export const getSectionsConfig = (
       { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
     ]
   },
-  beschikbareZalen: {
-    title: 'Zaalplanning',
-    collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
-    icon: <Building2 size={18} />,
-    data: zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen,
-    fields: zaalTab === 'weekplanning' ? [
-      { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
-      { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-      { isRow: true, fields: [
-        { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
-        { name: 'startUur', label: 'Beginuur', type: 'time' },
-        { name: 'eindUur', label: 'Einduur', type: 'time' }
-      ]},
-      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-    ] : (uitzonderingType === 'onbeschikbaar' ? [
-      { name: 'datum', label: 'Datum', type: 'date' },
-      { name: 'zaalId', label: 'Betreffende Vaste Planning', type: 'select', options: filteredBeschikbareZalen.map(z => ({ value: z.id, label: `${locaties.find(l => l.id === z.locatieId)?.naam} (${z.dag} ${z.startUur}-${z.eindUur})` })) },
-      { name: 'reden', label: 'Reden van onbeschikbaarheid', type: 'text', placeholder: 'bv. Schoolfeest, onderhoud...' }
-    ] : [
-      { name: 'datum', label: 'Datum', type: 'date' },
-      { isRow: true, fields: [{ name: 'startUur', label: 'Beginuur', type: 'time' }, { name: 'eindUur', label: 'Einduur', type: 'time' }] },
-      { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
-      { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
-    ])
-  },
+beschikbareZalen: {
+  title: 'Zaalplanning',
+  collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
+  icon: <Building2 size={18} />,
+  data: zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen,
+  fields: zaalTab === 'weekplanning' ? [
+    { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+    { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+    { isRow: true, fields: [
+      { name: 'dag', label: 'Weekdag', type: 'select', options: ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'] },
+      { name: 'startUur', label: 'Beginuur', type: 'time' },
+      { name: 'eindUur', label: 'Einduur', type: 'time' }
+    ]},
+    { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+  ] : [
+    // Gelijkgetrokken velden voor zowel 'extra' als 'onbeschikbaar'
+    { name: 'datum', label: 'Datum', type: 'date' },
+    { isRow: true, fields: [
+      { name: 'startUur', label: 'Beginuur', type: 'time' }, 
+      { name: 'eindUur', label: 'Einduur', type: 'time' }
+    ]},
+    { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+    { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+    { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
+    { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+  ]
+},
 
 vasteTrainingen: {
       title: 'Jaarplanning',
