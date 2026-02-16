@@ -42,7 +42,11 @@ const AdminTable = ({
         const g = groepen.find(gr => gr.id === v.groepId);
         return `${g?.naam || 'Groep'} (${v.dag} ${v.startUur})`;
     }
-
+    // Voor de tekstuele weergave van de nieuwe kolom
+    if (field.name === 'type' && adminSection === 'beschikbareZalen') {
+      return value === 'extra' ? 'Extra zaal' : 'Onbeschikbaar';
+    }
+    
     // NIEUW: Specifieke weergave voor de datum kolom in Zaaluitzonderingen met icoontjes
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && field.name === 'datum') {
       return (
@@ -52,7 +56,7 @@ const AdminTable = ({
           ) : (
             <CalendarX size={14} className="text-red-500" />
           )}
-          {value}
+          {formatDate(value)}
         </span>
       );
     }
