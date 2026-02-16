@@ -78,6 +78,7 @@ beschikbareZalen: {
   ] : [
     // Gelijkgetrokken velden voor zowel 'extra' als 'onbeschikbaar'
     { name: 'datum', label: 'Datum', type: 'date' },
+    { name: 'type', label: 'Type', type: 'text', hideInModal: true },
     { isRow: true, fields: [
       { name: 'startUur', label: 'Beginuur', type: 'time' }, 
       { name: 'eindUur', label: 'Einduur', type: 'time' }
