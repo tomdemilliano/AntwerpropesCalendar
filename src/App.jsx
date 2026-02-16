@@ -231,8 +231,6 @@ const App = () => {
         </div>
       );
     }
-
-    if (field.name === 'zaalId' && uitzonderingType !== 'onbeschikbaar') return null;
     
     if (field.type === 'select') {
       let options = field.options;
@@ -241,53 +239,32 @@ const App = () => {
       }
 
       return (
-//        <select name={field.name} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
-          <select name={field.name} id={field.name} // Belangrijk voor handmatige updates
-            required={!['reden', 'zaalId', 'huurprijs'].includes(field.name)} 
-            defaultValue={editingItem ? editingItem[field.name] : ''} 
-            className="..."
-            onChange={(e) => {
-              if (adminSection === 'vasteTrainingen' && field.name === 'groepId') {
-                const gObj = groepen.find(g => g.id === e.target.value);
-                if (gObj?.coachIds) setSelectedCoachIds(gObj.coachIds);
-              }
-              if (adminSection === 'beschikbareZalen' && field.name === 'zaalId') {
-                const gekozenZaal = beschikbareZalen.find(z => z.id === e.target.value);
-                if (gekozenZaal) {
-                  // Update de form velden (dit vereist dat we uncontrolled inputs gebruiken of de state managen)
-                  // De makkelijkste manier in deze setup is via de DOM of temp state
-                  const form = e.target.form;
-                  if (form) {
-                    form.elements['locatieId'].value = gekozenZaal.locatieId;
-                    form.elements['zaaldelen'].value = gekozenZaal.zaaldelen;
-                    form.elements['startUur'].value = gekozenZaal.startUur;
-                    form.elements['eindUur'].value = gekozenZaal.eindUur;
-                    form.elements['huurprijs'].value = gekozenZaal.huurprijs || 0;
-                  }
-                }
-              }
-              
-              if (adminSection === 'vasteTrainingen' && field.name === 'dag') setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
-              if (adminSection === 'afwijkingen' && field.name === 'vasteId') {
-                 const v = vasteTrainingen.find(vt => vt.id === e.target.value);
-                 if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
-              }
-            }}
+        <select name={field.name} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
+          onChange={(e) => {
+            if (adminSection === 'vasteTrainingen' && field.name === 'groepId') {
+              const gObj = groepen.find(g => g.id === e.target.value);
+              if (gObj?.coachIds) setSelectedCoachIds(gObj.coachIds);
+            }
+            if (adminSection === 'vasteTrainingen' && field.name === 'dag') setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
+            if (adminSection === 'afwijkingen' && field.name === 'vasteId') {
+               const v = vasteTrainingen.find(vt => vt.id === e.target.value);
+               if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
+            }
+          }}
         >
           <option value="">Kies...</option>
-          {options.map(opt => <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>)}
+          {options.map(opt => <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>{typeof opt === 'string' ? opt : opt.label}</option>)}
         </select>
       );
     }
 
     return (
-      <input 
-        name={field.name} 
-        type={field.type} 
-        required={!['reden', 'zaalId'].includes(field.name)} 
-        defaultValue={editingItem ? editingItem[field.name] : ''} 
-        placeholder={field.placeholder} 
-        className="..." 
+      <input name={field.name} type={field.type} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
+        onChange={(e) => { 
+          if (['dag', 'startUur', 'eindUur', 'datum'].includes(field.name)) {
+            setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
+          }
+        }}
       />
     );
   };
