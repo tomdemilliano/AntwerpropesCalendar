@@ -330,7 +330,9 @@ const App = () => {
                   locatieId: geselecteerdeZaal.locatieId,
                   zaaldelen: geselecteerdeZaal.zaaldelen,
                   huurprijs: geselecteerdeZaal.huurprijs
-              }));
+                }));
+              }
+            }
           }}
         >
           <option value="">Kies...</option>
