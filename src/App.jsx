@@ -46,6 +46,9 @@ const App = () => {
   const [zaalUitzonderingen, setZaalUitzonderingen] = useState([]);
   const [afwijkingen, setAfwijkingen] = useState([]); // Nieuwe collectie
 
+  // --- vaste array voor weekdagen ---
+  const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+
   // --- FIREBASE FETCHING ---
   useEffect(() => {
     const unsubTrainingen = onSnapshot(query(collection(db, "planning"), orderBy("datum", "asc")), (snapshot) => {
@@ -96,6 +99,43 @@ const App = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+// automatisch triggeren van selectie geplande zaal bij modal 'onbeschikbare' zaal
+  useEffect(() => {
+    // Enkel uitvoeren in de juiste context: zaalplanning -> uitzonderingen -> type onbeschikbaar
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' && uitzonderingType === 'onbeschikbaar' && tempVasteTraining.datum) {
+      const dagNaam = days[new Date(tempVasteTraining.datum).getDay()];
+      const relevanteZalen = filteredBeschikbareZalen.filter(z => z.dag === dagNaam);
+
+      if (relevanteZalen.length === 1) {
+        const zaal = relevanteZalen[0];
+      
+        // Kleine vertraging om te zorgen dat de modal/formulier gerenderd is
+        setTimeout(() => {
+          const form = document.querySelector('form');
+          if (form && form.weekplanningId) {
+            form.weekplanningId.value = zaal.id;
+            // Trigger handmatig de invulling
+            form.startUur.value = zaal.startUur;
+            form.eindUur.value = zaal.eindUur;
+            form.locatieId.value = zaal.locatieId;
+            form.zaaldelen.value = zaal.zaaldelen;
+            form.huurprijs.value = zaal.huurprijs;
+          
+            setTempVasteTraining(prev => ({
+              ...prev,
+              weekplanningId: zaal.id,
+              startUur: zaal.startUur,
+              eindUur: zaal.eindUur,
+              locatieId: zaal.locatieId,
+              zaaldelen: zaal.zaaldelen,
+              huurprijs: zaal.huurprijs
+            }));
+          }
+        }, 100);
+      }
+    }
+  }, [tempVasteTraining.datum]);
+  
   // --- MEMOIZED DATA ---
   const filteredGroepen = useMemo(() => {
     const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
@@ -241,6 +281,23 @@ const App = () => {
         options = getBeschikbareLocatieOpties();
       }
 
+      // Filter de weekplanning op basis van de ingevulde datum
+      if (field.name === 'weekplanningId') {
+        const gekozenDatum = tempVasteTraining.datum;
+        if (gekozenDatum) {
+          const datumObject = new Date(gekozenDatum);
+          const dagNaam = days[datumObject.getDay()];
+      
+          // Haal de rijen uit de vaste weekplanning die op deze dag vallen
+          options = filteredBeschikbareZalen
+            .filter(z => z.dag === dagNaam)
+            .map(z => ({
+              value: z.id,
+              label: `${z.dag}: ${locaties.find(l => l.id === z.locatieId)?.naam} (${z.startUur}-${z.eindUur})`
+            }));
+        }
+      }
+      
       return (
         <select name={field.name} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
           onChange={(e) => {
@@ -253,6 +310,27 @@ const App = () => {
                const v = vasteTrainingen.find(vt => vt.id === e.target.value);
                if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
             }
+            if (field.name === 'weekplanningId' && e.target.value) {
+              const geselecteerdeZaal = filteredBeschikbareZalen.find(z => z.id === e.target.value);
+              if (geselecteerdeZaal) {
+                const form = e.target.form;
+                // Vul de velden in het formulier direct in
+                if(form.startUur) form.startUur.value = geselecteerdeZaal.startUur;
+                if(form.eindUur) form.eindUur.value = geselecteerdeZaal.eindUur;
+                if(form.locatieId) form.locatieId.value = geselecteerdeZaal.locatieId;
+                if(form.zaaldelen) form.zaaldelen.value = geselecteerdeZaal.zaaldelen;
+                if(form.huurprijs) form.huurprijs.value = geselecteerdeZaal.huurprijs;
+            
+                // Update ook de state zodat de save-functie de juiste data heeft
+                setTempVasteTraining(prev => ({
+                  ...prev,
+                  weekplanningId: e.target.value,
+                  startUur: geselecteerdeZaal.startUur,
+                  eindUur: geselecteerdeZaal.eindUur,
+                  locatieId: geselecteerdeZaal.locatieId,
+                  zaaldelen: geselecteerdeZaal.zaaldelen,
+                  huurprijs: geselecteerdeZaal.huurprijs
+              }));
           }}
         >
           <option value="">Kies...</option>
