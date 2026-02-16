@@ -179,14 +179,6 @@ const App = () => {
     }
     if (currentColl === 'zaalUitzonderingen' && !editingItem) data.type = uitzonderingType;
 
-    if (currentColl === 'zaalUitzonderingen' && !editingItem) {
-      data.type = uitzonderingType;
-      // Als het onbeschikbaar is via een zaalId, kunnen we de huurprijs op 0 zetten
-      if (uitzonderingType === 'onbeschikbaar') {
-        data.huurprijs = 0;
-      }
-    } 
-
     if (editingItem) await updateDoc(doc(db, currentColl, editingItem.id), data);
     else await addDoc(collection(db, currentColl), data);
     
