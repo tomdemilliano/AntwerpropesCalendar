@@ -76,17 +76,37 @@ beschikbareZalen: {
     ]},
     { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
   ] : [
-    // Gelijkgetrokken velden voor zowel 'extra' als 'onbeschikbaar'
-    { name: 'datum', label: 'Datum', type: 'date' },
-    { name: 'type', label: 'Type', type: 'text', hideInModal: true },
-    { isRow: true, fields: [
-      { name: 'startUur', label: 'Beginuur', type: 'time' }, 
-      { name: 'eindUur', label: 'Einduur', type: 'time' }
-    ]},
-    { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
-    { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-    { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
-    { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+    fields: uitzonderingType === 'extra' ? [
+      { name: 'datum', label: 'Datum', type: 'date' },
+      { name: 'type', label: 'Type', type: 'text', hideInModal: true },
+      { isRow: true, fields: [
+        { name: 'startUur', label: 'Beginuur', type: 'time' }, 
+        { name: 'eindUur', label: 'Einduur', type: 'time' }
+      ]},
+      { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+      { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+      { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
+      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+    ] : [
+      // VELDEN VOOR ONBESCHIKBAAR
+      { name: 'datum', label: 'Datum', type: 'date' },
+      { 
+        name: 'weekplanningId', 
+        label: 'Geplande training', 
+        type: 'select', 
+        options: [], // Wordt dynamisch gevuld in App.jsx
+        hideInTable: true // Zorgt dat het niet in de grid komt
+      },
+      { name: 'type', label: 'Type', type: 'text', hideInModal: true },
+      { isRow: true, fields: [
+        { name: 'startUur', label: 'Start', type: 'time' },
+        { name: 'eindUur', label: 'Einde', type: 'time' }
+      ]},
+      { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
+      { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
+      { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
+      { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
+    ]  
   ]
 },
 
