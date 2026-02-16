@@ -23,7 +23,7 @@ const AdminModal = ({
         </div>
         
         <form onSubmit={onSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          {fields.filter(f => f.type !== 'status').map((field, idx) => {
+          {fields.filter(f => f.type !== 'status' && f.hideInModal !== true).map((field, idx) => {
             if (field.isRow) {
               return (
                 <div key={idx} className={`grid ${field.fields.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
