@@ -332,7 +332,7 @@ const App = () => {
                   huurprijs: geselecteerdeZaal.huurprijs
               }));
           }}
-
+        >
           <option value="">Kies...</option>
           {options.map(opt => <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>{typeof opt === 'string' ? opt : opt.label}</option>)}
         </select>
