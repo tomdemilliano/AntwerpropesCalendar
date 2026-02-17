@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
 import SeizoenModal from './components/SeizoenModal';
 import CoachModal from './components/CoachModal';
+import LocatieModal from './components/LocatieModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
@@ -521,6 +522,22 @@ const handleSaveAdminItem = async (e) => {
       alert("Er is een fout opgetreden.");
     }
   };
+
+  const handleSaveLocatie = async (e, formData) => {
+    if (e) e.preventDefault();
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, "locaties", editingItem.id), formData);
+      } else {
+        await addDoc(collection(db, "locaties"), formData);
+      }
+      setShowAdminModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Fout bij opslaan locatie:", error);
+      alert("Er is een fout opgetreden.");
+    }
+  };
   
   // --- CALENDAR LOGIC (Ongewijzigd) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -616,10 +633,15 @@ const handleSaveAdminItem = async (e) => {
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         onSubmit={handleSaveCoach}
         editingItem={editingItem}
-      />
-
+      /> 
+      <LocatieModal 
+        show={showAdminModal && adminSection === 'locaties'} 
+        onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
+        onSubmit={handleSaveLocatie}
+        editingItem={editingItem}
+      /> 
       <AdminModal 
-        show={showAdminModal&& adminSection !== 'seizoenen' && adminSection !== 'coaches'}
+        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties'].includes(adminSection)}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         title={editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie' : 'Zaal onbeschikbaar') : 'Nieuw Item')}
         onSubmit={handleSaveAdminItem} editingItem={editingItem} fields={currentSection.fields} renderInputField={RenderInputField} handleDeleteAllPlanned={handleDeleteAllPlannedForSeason} adminSection={adminSection}
