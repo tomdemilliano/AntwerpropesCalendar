@@ -135,7 +135,8 @@ vasteTrainingen: {
           options: (() => {
             // 1. Haal de geselecteerde datum op uit de huidige form data 
             // (Je moet zorgen dat 'formData' beschikbaar is in deze scope, zie stap B)
-            const geselecteerdeDatum = currentFormData?.datum; 
+           // const geselecteerdeDatum = currentFormData?.datum; 
+            const geselecteerdeDatum = extraUpdates.datum; 
             let lijst = filteredVasteTrainingen;
             if (geselecteerdeDatum) {
               const datumObj = new Date(geselecteerdeDatum);
