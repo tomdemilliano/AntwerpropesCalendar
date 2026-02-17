@@ -106,7 +106,7 @@ beschikbareZalen: {
       ]},
       { name: 'locatieId', label: 'Locatie', type: 'select', options: locaties.map(l => ({ value: l.id, label: l.naam })) },
       { name: 'zaaldelen', label: 'Zaaldelen', type: 'select', options: ['Volledige zaal', '1/2de zaal', '1/3de zaal', '2/3de zaal'] },
-      { name: 'reden', label: 'Reden', type: 'text', placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
+      { name: 'reden', label: 'Reden', type: 'text', required: false, placeholder: 'Optioneel (bv. Schoolfeest, extra training...)' },
       { name: 'huurprijs', label: 'Huurprijs (€)', type: 'number', placeholder: '0.00' }
     ])  
 },
@@ -151,7 +151,7 @@ vasteTrainingen: {
             });
           })()
         },
-        { name: 'reden', label: 'Reden (waarom onbeschikbaar)', type: 'text' },
+        { name: 'reden', label: 'Reden (waarom onbeschikbaar)', type: 'text', required: false },
 
   // 2. De Actie-velden
         { 
