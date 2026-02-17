@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { X, User } from 'lucide-react';
+import { X, User, Euro } from 'lucide-react';
 
 const CoachModal = ({ show, onClose, onSubmit, editingItem }) => {
   const [formData, setFormData] = useState({
-    naam: ''
+    voornaam: '',
+    achternaam: '',
+    uurtarief: ''
   });
 
   useEffect(() => {
     if (editingItem) {
-      setFormData(editingItem);
+      setFormData({
+        voornaam: editingItem.voornaam || '',
+        achternaam: editingItem.achternaam || '',
+        uurtarief: editingItem.uurtarief || ''
+      });
     } else {
-      setFormData({ naam: '' });
+      setFormData({ voornaam: '', achternaam: '', uurtarief: '' });
     }
   }, [editingItem, show]);
 
@@ -18,7 +24,13 @@ const CoachModal = ({ show, onClose, onSubmit, editingItem }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(e, formData);
+    // We sturen ook een samengevoegd 'naam' veld mee voor de tabelweergave 
+    // als je tabel dat veld gebruikt voor de 'hoofd'kolom.
+    const submissionData = {
+      ...formData,
+      naam: `${formData.voornaam} ${formData.achternaam}`.trim()
+    };
+    onSubmit(e, submissionData);
   };
 
   return (
@@ -35,19 +47,43 @@ const CoachModal = ({ show, onClose, onSubmit, editingItem }) => {
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Volledige Naam</label>
-            <input 
-              type="text" 
-              className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-              value={formData.naam}
-              onChange={e => setFormData({...formData, naam: e.target.value})}
-              placeholder="bv. Jan Janssen"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Voornaam</label>
+              <input 
+                type="text" 
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                value={formData.voornaam}
+                onChange={e => setFormData({...formData, voornaam: e.target.value})}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Achternaam</label>
+              <input 
+                type="text" 
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                value={formData.achternaam}
+                onChange={e => setFormData({...formData, achternaam: e.target.value})}
+                required
+              />
+            </div>
           </div>
 
-          {/* Je kunt hier later makkelijk velden toevoegen zoals email of gsm */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Uurtarief (€)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Euro size={16}/></span>
+              <input 
+                type="number" 
+                step="0.01"
+                className="w-full p-3 pl-10 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                value={formData.uurtarief}
+                onChange={e => setFormData({...formData, uurtarief: e.target.value})}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
 
           <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all mt-4">
             {editingItem ? 'Wijzigingen Opslaan' : 'Coach Toevoegen'}
