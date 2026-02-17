@@ -237,6 +237,12 @@ useEffect(() => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     const currentColl = currentSection.collection;
+    // --- OPSCHONEN DATA ---
+    // Firebase houdt niet van undefined. Verander lege velden naar null of verwijder ze.
+    Object.keys(data).forEach(key => {
+      if (data[key] === undefined) delete data[key];
+    });
+    
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
       data.type = uitzonderingType; // 'extra' of 'onbeschikbaar'
     }
@@ -250,58 +256,56 @@ useEffect(() => {
         data.seizoenId = activeSeasonId;
     }
     if (currentColl === 'zaalUitzonderingen' && !editingItem) data.type = uitzonderingType;
-
-//    if (editingItem) await updateDoc(doc(db, currentColl, editingItem.id), data);
-//    else await addDoc(collection(db, currentColl), data);
-
+    
+    // --- CONVERSIE NAAR REFERENCES (Indien nodig in jouw database structuur) ---
+    // Als jouw app verwacht dat ID's echte 'doc references' zijn, 
+    // moet je die hier omzetten. Zo niet, laat dit dan weg.
+    // if (data.groepId) data.groepId = doc(db, 'groepen', data.groepId);
     let newDocId;
     
-if (editingItem) {
-  await updateDoc(doc(db, currentColl, editingItem.id), data);
-  newDocId = editingItem.id;
-  // Optioneel: Je zou hier ook logica kunnen toevoegen voor updates, 
-  // maar laten we beginnen met het aanmaken (nieuwe items).
-} else {
-  const docRef = await addDoc(collection(db, currentColl), data);
-  newDocId = docRef.id;
-
-  // --- START NIEUWE LOGICA VOOR AFWIJKINGEN ---
-  if (currentColl === 'zaalUitzonderingen' && uitzonderingType === 'onbeschikbaar') {
-    // 1. Bepaal de weekdag van de datum van de uitzondering
-    const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
-    const geselecteerdeDatum = new Date(data.datum);
-    const dagNaam = days[geselecteerdeDatum.getDay()];
-
-    // 2. Filter de vaste jaarplanning
-    // We zoeken items op dezelfde dag, in dezelfde zaal, die qua uren overlappen
-    const overlappendeTrainingen = filteredVasteTrainingen.filter(vt => {
-      const zelfdeDag = vt.dag === dagNaam;
-      const zelfdeLocatie = vt.locatieId === data.locatieId;
-      const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
+    if (editingItem) {
+      await updateDoc(doc(db, currentColl, editingItem.id), data);
+      newDocId = editingItem.id;
+    } else {
+      const docRef = await addDoc(collection(db, currentColl), data);
+      newDocId = docRef.id;
       
-      return zelfdeDag && zelfdeLocatie && overlapt;
-    });
-
-    // 3. Maak voor elke gevonden training een rij aan in 'afwijkingen'
-    for (const vt of overlappendeTrainingen) {
-      await addDoc(collection(db, 'afwijkingen'), {
-        seizoenId: activeSeasonId,
-        vasteId: vt.id,
-        datum: data.datum, // De datum van de zaal-onbeschikbaarheid
-        groepId: vt.groepId,
-        startUur: vt.startUur,
-        eindUur: vt.eindUur,
-        locatieId: vt.locatieId,
-        status: 'te behandelen',
-        reden: data.reden || 'Zaal onbeschikbaar',
-        nieuweLocatieId: '',
-        aangepastStartUur: '',
-        aangepastEindUur: ''
-      });
+      // --- START NIEUWE LOGICA VOOR AFWIJKINGEN ---
+      if (currentColl === 'zaalUitzonderingen' && uitzonderingType === 'onbeschikbaar') {
+        // 1. Bepaal de weekdag van de datum van de uitzondering
+        const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+        const geselecteerdeDatum = new Date(data.datum);
+        const dagNaam = days[geselecteerdeDatum.getDay()];
+        
+        // 2. Filter de vaste jaarplanning
+        // We zoeken items op dezelfde dag, in dezelfde zaal, die qua uren overlappen
+        const overlappendeTrainingen = filteredVasteTrainingen.filter(vt => {
+          const zelfdeDag = vt.dag === dagNaam;
+          const zelfdeLocatie = vt.locatieId === data.locatieId;
+          const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
+          return zelfdeDag && zelfdeLocatie && overlapt;
+        });
+        
+        // 3. Maak voor elke gevonden training een rij aan in 'afwijkingen'
+        for (const vt of overlappendeTrainingen) {
+          await addDoc(collection(db, 'afwijkingen'), {
+            seizoenId: activeSeasonId || '',
+            vasteId: vt.id || '',
+            datum: data.datum || '', // De datum van de zaal-onbeschikbaarheid
+            groepId: vt.groepId || '',
+            startUur: vt.startUur || '',
+            eindUur: vt.eindUur || '',
+            locatieId: vt.locatieId || '',
+            status: 'te behandelen',
+            reden: data.reden || 'Zaal onbeschikbaar',
+            nieuweLocatieId: '',
+            aangepastStartUur: '',
+            aangepastEindUur: ''
+          });
+        }
+      }
+      // --- EINDE NIEUWE LOGICA ---
     }
-  }
-  // --- EINDE NIEUWE LOGICA ---
-}
     
     setShowAdminModal(false);
     setEditingItem(null);
