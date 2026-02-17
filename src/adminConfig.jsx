@@ -14,7 +14,8 @@ export const getSectionsConfig = (
   zaalTab,
   uitzonderingType,
   filteredAfwijkingen, 
-  vasteTab
+  vasteTab,
+  tempVasteTraining,
 ) => ({
   seizoenen: { 
     title: 'Seizoenen', 
@@ -136,7 +137,7 @@ vasteTrainingen: {
             // 1. Haal de geselecteerde datum op uit de huidige form data 
             // (Je moet zorgen dat 'formData' beschikbaar is in deze scope, zie stap B)
            // const geselecteerdeDatum = currentFormData?.datum; 
-            const geselecteerdeDatum = extraUpdates.datum; 
+            const geselecteerdeDatum = tempVasteTraining.datum; 
             let lijst = filteredVasteTrainingen;
             if (geselecteerdeDatum) {
               const datumObj = new Date(geselecteerdeDatum);
