@@ -328,6 +328,36 @@ if (editingItem) {
         </div>
       );
     }
+
+    if (field.type === 'date') {
+      return (
+        <input type="date" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" value={editingItem?.[field.name] || ''}
+          onChange={e => {
+            const newValue = e.target.value;
+            let extraUpdates = {};
+            
+            // Specifieke logica voor Afwijkingen
+            if (adminSection === 'vasteTrainingen' && vasteTab === 'afwijkingen' && field.name === 'datum' && newValue) {
+              const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+              const datumObj = new Date(newValue);
+              const dagNaam = dagenWeek[datumObj.getDay()];
+              
+              // Filter de vaste trainingen op de geselecteerde dag
+              const matches = vasteTrainingen.filter(v => v.dag === dagNaam);
+              
+              // Als er precies 1 match is, selecteer deze automatisch
+              if (matches.length === 1) {
+                extraUpdates.vasteId = matches[0].id;
+              } else {
+                // Reset als de dag verandert naar een dag met 0 of meerdere opties
+                extraUpdates.vasteId = '';
+              }
+            }
+            setEditingItem({...editingItem, [field.name]: newValue,  ...extraUpdates});
+          }}
+          />
+      );
+    }
     
     if (field.type === 'select') {
       let options = field.options;
