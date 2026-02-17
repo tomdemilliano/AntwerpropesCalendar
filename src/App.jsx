@@ -611,9 +611,15 @@ const handleSaveAdminItem = async (e) => {
         editingItem={editingItem}
         handleDeleteAllPlanned={handleDeleteAllPlannedForSeason}
       />
+      <CoachModal 
+        show={showAdminModal && adminSection === 'coaches'} 
+        onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
+        onSubmit={handleSaveCoach}
+        editingItem={editingItem}
+      />
 
       <AdminModal 
-        show={showAdminModal&& adminSection !== 'seizoenen'}
+        show={showAdminModal&& adminSection !== 'seizoenen' && adminSection !== 'coaches'}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         title={editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie' : 'Zaal onbeschikbaar') : 'Nieuw Item')}
         onSubmit={handleSaveAdminItem} editingItem={editingItem} fields={currentSection.fields} renderInputField={RenderInputField} handleDeleteAllPlanned={handleDeleteAllPlannedForSeason} adminSection={adminSection}
