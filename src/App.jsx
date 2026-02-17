@@ -324,7 +324,7 @@ if (editingItem) {
   };
 
   const RenderInputField = (field) => {
-    const isRequired = field.required !== true;
+    const isRequired = field.required !== false;
   
     if (field.type === 'tag-input') {
       return (
