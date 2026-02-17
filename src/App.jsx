@@ -243,6 +243,13 @@ useEffect(() => {
       if (data[key] === undefined) delete data[key];
     });
 
+    if (editingItem && editingItem.id) {
+      await updateDoc(doc(db, currentColl, editingItem.id), data);
+    } else {
+      // In alle andere gevallen: nieuw document aanmaken
+      await addDoc(collection(db, currentColl), data);
+    }
+
 // DEBUG LOGS
   console.log("--- DEBUG SAVE ---");
   console.log("Collection:", currentColl);
