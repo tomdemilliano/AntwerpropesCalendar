@@ -141,28 +141,29 @@ const App = () => {
     }
   }, [tempVasteTraining.datum]);
   
-  useEffect(() => {
-    // Focus op de afwijkingen modal
-    if (adminSection === 'afwijkingen' && tempVasteTraining.datum) {
-      const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
-      const geselecteerdeDatum = new Date(tempVasteTraining.datum);
-      const dagNaam = dagenWeek[geselecteerdeDatum.getDay()];
-      
-      // 1. Filter de vaste trainingen op precies dezelfde manier als de dropdown in adminConfig
-      const relevanteTrainingen = filteredVasteTrainingen.filter(v => v.dag === dagNaam);
-      
-      // 2. Als er exact 1 resultaat is, selecteer dit automatisch in de state
-      if (relevanteTrainingen.length === 1) {
-        const geselecteerdeTraining = relevanteTrainingen[0];
-        // Update de state. Omdat de select-input in AdminModal gekoppeld is 
-        // aan tempVasteTraining.vastId, zal de UI dit direct overnemen.
-        setTempVasteTraining(prev => ({
-          ...prev,
-          vastId: geselecteerdeTraining.id
-        }));
-      }
+useEffect(() => {
+  // Controleer of we in de juiste sectie zitten en of er een datum is
+  if (adminSection === 'afwijkingen' && tempVasteTraining.datum) {
+    
+    // Gebruik een lokale array voor dagen (zodat je niet afhankelijk bent van externe bestanden)
+    const lokaleDagen = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+    const datumObj = new Date(tempVasteTraining.datum);
+    const dagNaam = lokaleDagen[datumObj.getDay()];
+
+    // Filter de lijst. Gebruik de 'vasteTrainingen' state direct.
+    const relevante = vasteTrainingen.filter(v => v.dag === dagNaam);
+
+    // Belangrijk: check of er exact 1 resultaat is EN of deze nog niet geselecteerd is
+    // Dit voorkomt de "before initialization" en "infinite loop" errors
+    if (relevante.length === 1 && tempVasteTraining.vastId !== relevante[0].id) {
+      setTempVasteTraining(prev => ({
+        ...prev,
+        vastId: relevante[0].id
+      }));
     }
-  }, [tempVasteTraining.datum, adminSection, filteredVasteTrainingen]);
+  }
+}, [tempVasteTraining.datum, adminSection, vasteTrainingen]); 
+// Let op: we luisteren naar .datum, niet naar het hele tempVasteTraining object!
   
   // --- MEMOIZED DATA ---
   const filteredGroepen = useMemo(() => {
