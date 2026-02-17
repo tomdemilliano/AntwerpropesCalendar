@@ -486,6 +486,25 @@ const handleSaveAdminItem = async (e) => {
     } catch (error) { alert("Er is een fout opgetreden."); }
   };
 
+  const handleSaveSeizoen = async (e, formData) => {
+    if (e) e.preventDefault();
+    try {
+      if (editingItem) {
+        // Update bestaand seizoen
+        await updateDoc(doc(db, "seizoenen", editingItem.id), formData);
+      } else {
+        // Voeg nieuw seizoen toe
+        await addDoc(collection(db, "seizoenen"), formData);
+      }
+      // UI opschonen
+      setShowAdminModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Fout bij opslaan seizoen:", error);
+      alert("Er is een fout opgetreden bij het opslaan van het seizoen.");
+    }
+  };
+  
   // --- CALENDAR LOGIC (Ongewijzigd) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -571,7 +590,7 @@ const handleSaveAdminItem = async (e) => {
       <SeizoenModal 
         show={showAdminModal && adminSection === 'seizoenen'} 
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
-        onSubmit={handleSaveAdminItem}
+        onSubmit={handleSaveSeizoen}
         editingItem={editingItem}
         handleDeleteAllPlanned={handleDeleteAllPlannedForSeason}
       />
