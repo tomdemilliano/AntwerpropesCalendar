@@ -169,7 +169,7 @@ const App = () => {
   const sections = getSectionsConfig(
     filteredGroepen, coaches, locaties, filteredBeschikbareZalen, 
     filteredUitzonderingen, seizoenen, filteredVasteTrainingen, zaalTab, uitzonderingType,
-    filteredAfwijkingen, vasteTab // Extra parameters doorsturen
+    filteredAfwijkingen, vasteTab, tempVasteTraining// Extra parameters doorsturen
   );
   const currentSection = sections[adminSection];
 
