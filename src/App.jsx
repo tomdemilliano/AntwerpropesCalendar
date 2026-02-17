@@ -232,101 +232,79 @@ useEffect(() => {
     return opties;
   };
 
-  const handleSaveAdminItem = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
-    const currentColl = currentSection.collection;
-    // --- OPSCHONEN DATA ---
-    // Firebase houdt niet van undefined. Verander lege velden naar null of verwijder ze.
-    Object.keys(data).forEach(key => {
-      if (data[key] === undefined) delete data[key];
-    });
+const handleSaveAdminItem = async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+  const currentColl = currentSection.collection;
 
+  // 1. Opschonen data
+  Object.keys(data).forEach(key => {
+    if (data[key] === undefined || data[key] === "") delete data[key];
+  });
+
+  // 2. Metadata toevoegen
+  if (currentColl === 'vasteTrainingen' || currentColl === 'groepen') data.coachIds = selectedCoachIds;
+  
+  if (currentColl === 'groepen') {
+    const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
+    data.seizoen = actueelSeizoen?.naam || '';
+  }
+
+  if (['vasteTrainingen', 'groepen', 'beschikbareZalen', 'zaalUitzonderingen', 'afwijkingen'].includes(currentColl)) {
+    data.seizoenId = activeSeasonId;
+  }
+
+  if (currentColl === 'zaalUitzonderingen' && !editingItem?.id) {
+    data.type = uitzonderingType;
+  }
+
+  try {
+    // 3. De cruciale check: heeft het item een ID uit de database?
     if (editingItem && editingItem.id) {
+      // UPDATE bestaand item
       await updateDoc(doc(db, currentColl, editingItem.id), data);
     } else {
-      // In alle andere gevallen: nieuw document aanmaken
-      await addDoc(collection(db, currentColl), data);
-    }
-
-// DEBUG LOGS
-  console.log("--- DEBUG SAVE ---");
-  console.log("Collection:", currentColl);
-  console.log("Form Data:", data);
-  console.log("Editing Item:", editingItem);
-  console.log("Active Season ID:", activeSeasonId);
-    
-    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
-      data.type = uitzonderingType; // 'extra' of 'onbeschikbaar'
-    }
-    
-    if (currentColl === 'vasteTrainingen' || currentColl === 'groepen') data.coachIds = selectedCoachIds;
-    if (currentColl === 'groepen') {
-        const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
-        data.seizoen = actueelSeizoen?.naam || '';
-    }
-    if (['vasteTrainingen', 'groepen', 'beschikbareZalen', 'zaalUitzonderingen', 'afwijkingen'].includes(currentColl)) {
-        data.seizoenId = activeSeasonId;
-    }
-    if (currentColl === 'zaalUitzonderingen' && !editingItem) data.type = uitzonderingType;
-    
-    // --- CONVERSIE NAAR REFERENCES (Indien nodig in jouw database structuur) ---
-    // Als jouw app verwacht dat ID's echte 'doc references' zijn, 
-    // moet je die hier omzetten. Zo niet, laat dit dan weg.
-    // if (data.groepId) data.groepId = doc(db, 'groepen', data.groepId);
-    let newDocId;
-    
-    if (editingItem) {
-      await updateDoc(doc(db, currentColl, editingItem.id), data);
-      newDocId = editingItem.id;
-    } else {
+      // VOEG NIEUW item toe
       const docRef = await addDoc(collection(db, currentColl), data);
-      newDocId = docRef.id;
       
-      // --- START NIEUWE LOGICA VOOR AFWIJKINGEN ---
+      // Specifieke logica voor zaal-onbeschikbaarheid naar afwijkingen
       if (currentColl === 'zaalUitzonderingen' && uitzonderingType === 'onbeschikbaar') {
-        // 1. Bepaal de weekdag van de datum van de uitzondering
-        const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
         const geselecteerdeDatum = new Date(data.datum);
         const dagNaam = days[geselecteerdeDatum.getDay()];
         
-        // 2. Filter de vaste jaarplanning
-        // We zoeken items op dezelfde dag, in dezelfde zaal, die qua uren overlappen
         const overlappendeTrainingen = filteredVasteTrainingen.filter(vt => {
-          const zelfdeDag = vt.dag === dagNaam;
-          const zelfdeLocatie = vt.locatieId === data.locatieId;
-          const overlapt = checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
-          return zelfdeDag && zelfdeLocatie && overlapt;
+          return vt.dag === dagNaam && 
+                 vt.locatieId === data.locatieId && 
+                 checkOverlap(vt.startUur, vt.eindUur, data.startUur, data.eindUur);
         });
         
-        // 3. Maak voor elke gevonden training een rij aan in 'afwijkingen'
         for (const vt of overlappendeTrainingen) {
           await addDoc(collection(db, 'afwijkingen'), {
             seizoenId: activeSeasonId || '',
             vasteId: vt.id || '',
-            datum: data.datum || '', // De datum van de zaal-onbeschikbaarheid
+            datum: data.datum || '',
             groepId: vt.groepId || '',
             startUur: vt.startUur || '',
             eindUur: vt.eindUur || '',
             locatieId: vt.locatieId || '',
             status: 'te behandelen',
-            reden: data.reden || 'Zaal onbeschikbaar',
-            nieuweLocatieId: '',
-            aangepastStartUur: '',
-            aangepastEindUur: ''
+            reden: data.reden || 'Zaal onbeschikbaar'
           });
         }
       }
-      // --- EINDE NIEUWE LOGICA ---
     }
-    
+
+    // 4. UI Reset
     setShowAdminModal(false);
     setEditingItem(null);
     setSelectedCoachIds([]);
     setTempVasteTraining({ dag: '', startUur: '', eindUur: '', datum: '' });
-  };
-
+  } catch (err) {
+    console.error("Fout bij opslaan:", err);
+    alert("Er is een fout opgetreden bij het opslaan.");
+  }
+};
   const openEditModal = (item) => {
     setEditingItem(item);
     if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
