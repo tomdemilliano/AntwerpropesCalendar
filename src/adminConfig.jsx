@@ -125,6 +125,7 @@ vasteTrainingen: {
       ] : [
   // 1. Informatieve velden (readonly in de modal via hideInModal indien gewenst, 
   // maar hier laten we ze staan zodat de planner ziet wat hij bewerkt)
+        { name: 'datum', label: 'Datum Afwijking', type: 'date' },
         { 
           name: 'vasteId', 
           label: 'Oorspronkelijke Training', 
@@ -134,7 +135,6 @@ vasteTrainingen: {
             return { value: v.id, label: `${g?.naam} (${v.dag} ${v.startUur})` };
           })
         },
-        { name: 'datum', label: 'Datum Afwijking', type: 'date' },
         { name: 'reden', label: 'Reden (waarom onbeschikbaar)', type: 'text' },
 
   // 2. De Actie-velden
