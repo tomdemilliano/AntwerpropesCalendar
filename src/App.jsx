@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Plus, X, Search } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
-import TrainingModal from './components/SeizoenModal';
+import SeizoenModal from './components/SeizoenModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
