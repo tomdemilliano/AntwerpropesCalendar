@@ -141,7 +141,7 @@ const AdminTable = ({
           {adminSection === 'vasteTrainingen' && (
             <div className="flex bg-white p-1 rounded-xl border border-slate-200 ml-4">
               <button onClick={() => setVasteTab('vaste-planning')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'vaste-planning' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Vaste Planning</button>
-              <button onClick={() => setVasteTab('afwijkingen')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'afwijkingen' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Afwijkingen / Inhaallessen</button>
+              <button onClick={() => setVasteTab('afwijkingen')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${vasteTab === 'afwijkingen' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Afwijkingen</button>
             </div>
           )}
         </div>
