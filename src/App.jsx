@@ -9,6 +9,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
 import SeizoenModal from './components/SeizoenModal';
+import CoachModal from './components/CoachModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
@@ -502,6 +503,22 @@ const handleSaveAdminItem = async (e) => {
     } catch (error) {
       console.error("Fout bij opslaan seizoen:", error);
       alert("Er is een fout opgetreden bij het opslaan van het seizoen.");
+    }
+  };
+
+  const handleSaveCoach = async (e, formData) => {
+    if (e) e.preventDefault();
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, "coaches", editingItem.id), formData);
+      } else {
+        await addDoc(collection(db, "coaches"), formData);
+      }
+      setShowAdminModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Fout bij opslaan coach:", error);
+      alert("Er is een fout opgetreden.");
     }
   };
   
