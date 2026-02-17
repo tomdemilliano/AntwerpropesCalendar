@@ -7,7 +7,7 @@ const LocatieModal = ({ show, onClose, onSubmit, editingItem }) => {
     straat: '',
     huisnummer: '',
     gemeente: '',
-    huurprijs: ''
+    uurtarief: ''
   });
 
   useEffect(() => {
@@ -17,10 +17,10 @@ const LocatieModal = ({ show, onClose, onSubmit, editingItem }) => {
         straat: editingItem.straat || '',
         huisnummer: editingItem.huisnummer || '',
         gemeente: editingItem.gemeente || '',
-        huurprijs: editingItem.huurprijs || ''
+        uurtarief: editingItem.uurtarief || ''
       });
     } else {
-      setFormData({ naam: '', straat: '', huisnummer: '', gemeente: '', huurprijs: '' });
+      setFormData({ naam: '', straat: '', huisnummer: '', gemeente: '', uurtarief: '' });
     }
   }, [editingItem, show]);
 
@@ -100,8 +100,8 @@ const LocatieModal = ({ show, onClose, onSubmit, editingItem }) => {
                 type="number" 
                 step="0.01"
                 className="w-full p-3 pl-10 bg-slate-50 border border-slate-100 rounded-xl outline-none"
-                value={formData.huurprijs}
-                onChange={e => setFormData({...formData, huurprijs: e.target.value})}
+                value={formData.uurtarief}
+                onChange={e => setFormData({...formData, uurtarief: e.target.value})}
                 placeholder="0.00"
               />
             </div>
