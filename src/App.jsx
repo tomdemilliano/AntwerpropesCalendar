@@ -390,9 +390,25 @@ if (editingItem) {
               if (gObj?.coachIds) setSelectedCoachIds(gObj.coachIds);
             }
             if (adminSection === 'vasteTrainingen' && field.name === 'dag') setTempVasteTraining(prev => ({ ...prev, dag: e.target.value }));
+                        
             if (adminSection === 'afwijkingen' && field.name === 'vasteId') {
-               const v = vasteTrainingen.find(vt => vt.id === e.target.value);
-               if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
+              const v = vasteTrainingen.find(vt => vt.id === e.target.value);
+              if (v) setTempVasteTraining(prev => ({ ...prev, startUur: v.startUur, eindUur: v.eindUur }));
+              // start toevoeging om filtering te kunnen doen van vaste trainingen in afwijking modal
+              const gekozenDatum = editingItem?.datum; // We halen de datum uit de state van het item dat we bewerken
+              if (gekozenDatum) {
+                const datumObject = new Date(gekozenDatum);
+                const dagNaam = days[datumObject.getDay()];
+                options = vasteTrainingen
+                  .filter(vt => vt.dag === dagNaam)
+                  .map(vt => ({
+                    value: vt.id,
+                    label: `${vt.dag}: ${groepen.find(g => g.id === vt.groepId)?.naam} (${vt.startUur}-${vt.eindUur})`
+                  }));
+              } else {
+                options = []; // Geen datum = geen opties
+              }
+            //einde toevoeging
             }
             if (field.name === 'weekplanningId' && e.target.value) {
               const geselecteerdeZaal = filteredBeschikbareZalen.find(z => z.id === e.target.value);
