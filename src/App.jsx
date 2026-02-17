@@ -141,6 +141,29 @@ const App = () => {
     }
   }, [tempVasteTraining.datum]);
   
+  useEffect(() => {
+    // Focus op de afwijkingen modal
+    if (adminSection === 'afwijkingen' && tempVasteTraining.datum) {
+      const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+      const geselecteerdeDatum = new Date(tempVasteTraining.datum);
+      const dagNaam = dagenWeek[geselecteerdeDatum.getDay()];
+      
+      // 1. Filter de vaste trainingen op precies dezelfde manier als de dropdown in adminConfig
+      const relevanteTrainingen = filteredVasteTrainingen.filter(v => v.dag === dagNaam);
+      
+      // 2. Als er exact 1 resultaat is, selecteer dit automatisch in de state
+      if (relevanteTrainingen.length === 1) {
+        const geselecteerdeTraining = relevanteTrainingen[0];
+        // Update de state. Omdat de select-input in AdminModal gekoppeld is 
+        // aan tempVasteTraining.vastId, zal de UI dit direct overnemen.
+        setTempVasteTraining(prev => ({
+          ...prev,
+          vastId: geselecteerdeTraining.id
+        }));
+      }
+    }
+  }, [tempVasteTraining.datum, adminSection, filteredVasteTrainingen]);
+  
   // --- MEMOIZED DATA ---
   const filteredGroepen = useMemo(() => {
     const actueelSeizoen = seizoenen.find(s => s.id === activeSeasonId);
