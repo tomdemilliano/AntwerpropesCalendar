@@ -324,6 +324,8 @@ if (editingItem) {
   };
 
   const RenderInputField = (field) => {
+    const isRequired = field.required !== true;
+  
     if (field.type === 'tag-input') {
       return (
         <div className="mt-1" ref={dropdownRef}>
@@ -355,7 +357,7 @@ if (editingItem) {
 
     if (field.type === 'date') {
       return (
-        <input type="date" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" value={editingItem?.[field.name] || ''}
+        <input type="date" required={isRequired} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" value={editingItem?.[field.name] || ''}
           onChange={e => {
             const newValue = e.target.value;
             let extraUpdates = {};
@@ -409,7 +411,7 @@ if (editingItem) {
       }
       
       return (
-        <select name={field.name} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
+        <select name={field.name} required={isRequired} defaultValue={editingItem ? editingItem[field.name] : ''} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm"
           onChange={(e) => {
             if (adminSection === 'vasteTrainingen' && field.name === 'groepId') {
               const gObj = groepen.find(g => g.id === e.target.value);
@@ -468,7 +470,7 @@ if (editingItem) {
     }
 
     return (
-      <input name={field.name} type={field.type} required={field.name !== 'reden'} defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
+      <input name={field.name} type={field.type} required={isRequired} defaultValue={editingItem ? editingItem[field.name] : ''} placeholder={field.placeholder} className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 ring-indigo-50 outline-none text-sm font-medium" 
         onChange={(e) => { 
           if (['dag', 'startUur', 'eindUur', 'datum'].includes(field.name)) {
             setTempVasteTraining(prev => ({ ...prev, [field.name]: e.target.value }));
