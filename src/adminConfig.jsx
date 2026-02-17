@@ -170,13 +170,14 @@ vasteTrainingen: {
           name: 'nieuweLocatieId', 
           label: 'Nieuwe zaal', 
           type: 'select', 
+          required: false,
           options: locaties.map(l => ({ value: l.id, label: l.naam })) 
         },
         { 
     isRow: true, 
           fields: [
-            { name: 'aangepastStartUur', label: 'Nieuw Beginuur', type: 'time' },
-            { name: 'aangepastEindUur', label: 'Nieuw Einduur', type: 'time' }
+            { name: 'aangepastStartUur', label: 'Nieuw Beginuur', type: 'time', required: false },
+            { name: 'aangepastEindUur', label: 'Nieuw Einduur', type: 'time', required: false }
           ]
         }
       ]
