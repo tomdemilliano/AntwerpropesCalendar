@@ -1,6 +1,8 @@
 import React from 'react';
 import { Users, User, MapPin, Building2, CalendarDays, Clock } from 'lucide-react';
 
+const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+
 export const getSectionsConfig = (
   filteredGroepen, 
   coaches, 
@@ -130,10 +132,22 @@ vasteTrainingen: {
           name: 'vasteId', 
           label: 'Oorspronkelijke Training', 
           type: 'select', 
-          options: filteredVasteTrainingen.map(v => {
-            const g = filteredGroepen.find(gr => gr.id === v.groepId);
-            return { value: v.id, label: `${g?.naam} (${v.dag} ${v.startUur})` };
-          })
+          options: (() => {
+            // 1. Haal de geselecteerde datum op uit de huidige form data 
+            // (Je moet zorgen dat 'formData' beschikbaar is in deze scope, zie stap B)
+            const geselecteerdeDatum = currentFormData?.datum; 
+            let lijst = filteredVasteTrainingen;
+            if (geselecteerdeDatum) {
+              const datumObj = new Date(geselecteerdeDatum);
+              const dagNaam = dagenWeek[datumObj.getDay()];
+              // 2. Filter de vaste trainingen op deze dag
+              lijst = filteredVasteTrainingen.filter(v => v.dag === dagNaam);
+            }
+            return lijst.map(v => {
+              const g = filteredGroepen.find(gr => gr.id === v.groepId);
+              return { value: v.id, label: `${g?.naam} (${v.dag} ${v.startUur})` };
+            });
+          })()
         },
         { name: 'reden', label: 'Reden (waarom onbeschikbaar)', type: 'text' },
 
