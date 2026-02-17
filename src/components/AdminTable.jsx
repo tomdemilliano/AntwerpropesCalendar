@@ -45,6 +45,7 @@ const AdminTable = ({
     // Behoud originele logica voor ID lookups
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
     if (field.name === 'locatieId') return locaties.find(l => l.id === value)?.naam || 'Onbekend';
+    if (field.name === 'nieuweLocatieId') return locaties.find(l => l.id === value)?.naam || '-';
     
     // Behoud originele logica voor Coach namen (voorkomt tonen van keys)
     if (field.name === 'coachIds' && Array.isArray(value)) {
