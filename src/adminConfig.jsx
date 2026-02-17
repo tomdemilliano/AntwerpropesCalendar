@@ -152,7 +152,7 @@ vasteTrainingen: {
   // 3. Velden voor de wijziging (enkel in te vullen als status 'gewijzigd' is)
         { 
           name: 'nieuweLocatieId', 
-          label: 'Nieuwe Zaal (indien verplaatst)', 
+          label: 'Nieuwe zaal', 
           type: 'select', 
           options: locaties.map(l => ({ value: l.id, label: l.naam })) 
         },
