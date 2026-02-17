@@ -343,14 +343,16 @@ if (editingItem) {
               const dagNaam = dagenWeek[datumObj.getDay()];
               
               // Filter de vaste trainingen op de geselecteerde dag
-              const matches = vasteTrainingen.filter(v => v.dag === dagNaam);
+              const matches = filteredVasteTrainingen.filter(v => v.dag === dagNaam);
               
               // Als er precies 1 match is, selecteer deze automatisch
               if (matches.length === 1) {
                 extraUpdates.vasteId = matches[0].id;
+                setTempVasteTraining(prev => ({ ...prev, datum: newValue, startUur: matches[0].startUur, eindUur: matches[0].eindUur }));
               } else {
                 // Reset als de dag verandert naar een dag met 0 of meerdere opties
                 extraUpdates.vasteId = '';
+                setTempVasteTraining(prev => ({ ...prev, datum: newValue }));
               }
             }
             setEditingItem({...editingItem, [field.name]: newValue,  ...extraUpdates});
