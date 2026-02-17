@@ -23,7 +23,7 @@ const SeizoenModal = ({ show, onClose, onSubmit, editingItem, handleDeleteAllPla
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit(e, formData);
   };
 
   return (
