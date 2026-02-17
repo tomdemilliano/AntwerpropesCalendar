@@ -158,7 +158,7 @@ useEffect(() => {
     if (relevante.length === 1 && tempVasteTraining.vastId !== relevante[0].id) {
       setTempVasteTraining(prev => ({
         ...prev,
-        vastId: relevante[0].id
+        vasteId: relevante[0].id
       }));
     }
   }
@@ -242,6 +242,13 @@ useEffect(() => {
     Object.keys(data).forEach(key => {
       if (data[key] === undefined) delete data[key];
     });
+
+// DEBUG LOGS
+  console.log("--- DEBUG SAVE ---");
+  console.log("Collection:", currentColl);
+  console.log("Form Data:", data);
+  console.log("Editing Item:", editingItem);
+  console.log("Active Season ID:", activeSeasonId);
     
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
       data.type = uitzonderingType; // 'extra' of 'onbeschikbaar'
