@@ -28,6 +28,7 @@ const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
 
   // Filter coaches op basis van zoekopdracht en sluit coaches uit die al geselecteerd zijn
   const availableCoaches = coaches.filter(c => 
+    c && c.naam &&
     c.naam.toLowerCase().includes(searchQuery.toLowerCase()) && 
     !formData.coachIds.includes(c.id)
   );
