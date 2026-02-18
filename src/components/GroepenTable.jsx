@@ -41,7 +41,7 @@ const GroepenTable = ({
               onChange={(e) => setActiveSeasonId(e.target.value)}
             >
               {seizoenen.map(s => (
-                <option key={s.id} value={s.id}>Seizoen {s.naam}</option>
+                <option key={s.id} value={s.id}>{s.naam}</option>
               ))}
             </select>
           </div>
