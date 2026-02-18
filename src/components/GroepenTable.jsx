@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Plus, Users } from 'lucide-react';
+import { Filter, Edit2, Trash2, Plus, Users } from 'lucide-react';
 
 const GroepenTable = ({ 
   groepen, 
