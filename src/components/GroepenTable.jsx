@@ -49,7 +49,7 @@ const GroepenTable = ({
           <button 
              onClick={() => { setEditingItem(null); setShowAdminModal(true); }}
              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-           ><Plus size={16}/> Nieuwe Groep</button>
+           ><Plus size={16}/> Groep Toevoegen</button>
 
         </div>
       </div>
