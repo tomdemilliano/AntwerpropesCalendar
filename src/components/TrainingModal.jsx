@@ -1,17 +1,31 @@
 import React from 'react';
 import { X, Calendar } from 'lucide-react';
 
-const TrainingModal = ({ 
-  show, 
-  onClose, 
-  onSubmit, 
-  newTraining, 
-  setNewTraining, 
-  groepen, 
-  coaches, 
-  locaties 
-}) => {
+const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches, locaties }) => {
+  const [formData, setFormData] = useState({
+    datum: '',
+    groepId: '',
+    coachId: '',
+    uren: '',
+    locatieId: ''
+  });
+
+  useEffect(() => {
+    if (editingItem) {
+      setFormData(editingItem);
+    } else {
+      setFormData({ datum: '', groepId: '', coachId: '', uren: '', locatieId: '' });
+    }
+  }, [editingItem, show]);
+
   if (!show) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(e, formData); // Stuur de lokale formData terug
+  };
+
+  
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -28,8 +42,8 @@ const TrainingModal = ({
               type="date" 
               required
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-              value={newTraining.datum}
-              onChange={e => setNewTraining({...newTraining, datum: e.target.value})}
+              value={formData.datum}
+              onChange={e => setformData({...formData, datum: e.target.value})}
             />
           </div>
 
@@ -38,8 +52,8 @@ const TrainingModal = ({
             <select 
               required 
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
-              value={newTraining.groepId}
-              onChange={e => setNewTraining({...newTraining, groepId: e.target.value})}
+              value={formData.groepId}
+              onChange={e => setformData({...formData, groepId: e.target.value})}
             >
               <option value="">Kies groep...</option>
               {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
@@ -52,8 +66,8 @@ const TrainingModal = ({
               <select 
                 required 
                 className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
-                value={newTraining.coachId}
-                onChange={e => setNewTraining({...newTraining, coachId: e.target.value})}
+                value={formData.coachId}
+                onChange={e => setformData({...formData, coachId: e.target.value})}
               >
                 <option value="">Coach...</option>
                 {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.achternaam}</option>)}
@@ -66,8 +80,8 @@ const TrainingModal = ({
                 placeholder="bv. 14u-16u" 
                 required
                 className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
-                value={newTraining.uren}
-                onChange={e => setNewTraining({...newTraining, uren: e.target.value})} 
+                value={formData.uren}
+                onChange={e => setformData({...formData, uren: e.target.value})} 
               />
             </div>
           </div>
@@ -77,8 +91,8 @@ const TrainingModal = ({
             <select 
               required 
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
-              value={newTraining.locatieId}
-              onChange={e => setNewTraining({...newTraining, locatieId: e.target.value})}
+              value={formData.locatieId}
+              onChange={e => setformData({...formData, locatieId: e.target.value})}
             >
               <option value="">Locatie...</option>
               {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
