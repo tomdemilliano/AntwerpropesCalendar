@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar } from 'lucide-react';
 
 const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches, locaties }) => {
@@ -43,7 +43,7 @@ const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches,
               required
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
               value={formData.datum}
-              onChange={e => setformData({...formData, datum: e.target.value})}
+              onChange={e => setFormData({...formData, datum: e.target.value})}
             />
           </div>
 
@@ -53,7 +53,7 @@ const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches,
               required 
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
               value={formData.groepId}
-              onChange={e => setformData({...formData, groepId: e.target.value})}
+              onChange={e => setFormData({...formData, groepId: e.target.value})}
             >
               <option value="">Kies groep...</option>
               {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
@@ -67,7 +67,7 @@ const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches,
                 required 
                 className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
                 value={formData.coachId}
-                onChange={e => setformData({...formData, coachId: e.target.value})}
+                onChange={e => setFormData({...formData, coachId: e.target.value})}
               >
                 <option value="">Coach...</option>
                 {coaches.map(c => <option key={c.id} value={c.id}>{c.voornaam} {c.achternaam}</option>)}
@@ -81,7 +81,7 @@ const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches,
                 required
                 className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
                 value={formData.uren}
-                onChange={e => setformData({...formData, uren: e.target.value})} 
+                onChange={e => setFormData({...formData, uren: e.target.value})} 
               />
             </div>
           </div>
@@ -92,7 +92,7 @@ const TrainingModal = ({ show, onClose, onSubmit, editingItem, groepen, coaches,
               required 
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" 
               value={formData.locatieId}
-              onChange={e => setformData({...formData, locatieId: e.target.value})}
+              onChange={e => setFormData({...formData, locatieId: e.target.value})}
             >
               <option value="">Locatie...</option>
               {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
