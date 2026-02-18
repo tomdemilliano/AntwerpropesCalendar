@@ -14,6 +14,7 @@ import LocatieModal from './components/LocatieModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
+import GroepenTable from '.components/GroepenTable';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
@@ -594,6 +595,16 @@ const handleSaveAdminItem = async (e) => {
         ) : (
           <div className="flex h-full bg-white">
             <Sidebar sections={sections} adminSection={adminSection} setAdminSection={setAdminSection} setSelectedCoachIds={setSelectedCoachIds} setTempVasteTraining={setTempVasteTraining} />
+            {adminSection === 'groepen' ? (
+              <GroepenTable 
+                groepen={filteredGroepen}
+                coaches={coaches}
+                openEditModal={openEditModal}
+                deleteDoc={deleteDoc}
+                db={db}
+                doc={doc}
+              />
+          ) : (
             <AdminTable 
               adminSection={adminSection}
               currentSection={currentSection}
@@ -622,6 +633,7 @@ const handleSaveAdminItem = async (e) => {
               deleteDoc={deleteDoc}
               doc={doc}
             />
+          )
           </div>
         )}
       </main>
