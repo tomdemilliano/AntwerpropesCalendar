@@ -633,7 +633,7 @@ const handleSaveAdminItem = async (e) => {
               deleteDoc={deleteDoc}
               doc={doc}
             />
-          )
+          )}
           </div>
         )}
       </main>
