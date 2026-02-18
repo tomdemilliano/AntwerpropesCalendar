@@ -599,6 +599,11 @@ const handleSaveAdminItem = async (e) => {
               <GroepenTable 
                 groepen={filteredGroepen}
                 coaches={coaches}
+                seizoenen={seizoenen}
+                activeSeasonId={activeSeasonId}
+                setActiveSeasonId={setActiveSeasonId}
+                setShowAdminModal={setShowAdminModal}
+                setEditingItem={setEditingItem}
                 openEditModal={openEditModal}
                 deleteDoc={deleteDoc}
                 db={db}
