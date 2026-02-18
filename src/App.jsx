@@ -32,7 +32,6 @@ const App = () => {
   const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [newTraining, setNewTraining] = useState({ datum: '', groepId: '', coachId: '', uren: '', locatieId: '' });
   const [uitzonderingType, setUitzonderingType] = useState('onbeschikbaar');
   const [activeSeasonId, setActiveSeasonId] = useState('');
   const [selectedSeasonId, setSelectedSeasonId] = useState('');
@@ -479,13 +478,24 @@ const handleSaveAdminItem = async (e) => {
     );
   };
 
-  const handleAddTraining = async (e) => {
+  const handleAddTraining = async (e, formData) => { // formData komt nu uit de modal
     e.preventDefault();
     try {
-      await addDoc(collection(db, "planning"), newTraining);
+      if (editingItem) {
+        // Wijzigen van bestaande training
+        const docRef = doc(db, "trainingen", editingItem.id);
+        await updateDoc(docRef, formData);
+      } else {
+        // Toevoegen van nieuwe training
+        await addDoc(collection(db, "trainingen"), formData);
+      }
       setShowTrainingModal(false);
-      setNewTraining({ datum: '', groepId: '', coachId: '', uren: '', locatieId: '' });
-    } catch (error) { alert("Er is een fout opgetreden."); }
+      setEditingItem(null);
+      // Optioneel: succes melding of reset
+    } catch (error) {
+      console.error("Fout bij opslaan training: ", error);
+      alert("Er is een fout opgetreden bij het opslaan.");
+    }
   };
 
   const handleSaveSeizoen = async (e, formData) => {
@@ -647,8 +657,16 @@ const handleSaveAdminItem = async (e) => {
         onSubmit={handleSaveAdminItem} editingItem={editingItem} fields={currentSection.fields} renderInputField={RenderInputField} handleDeleteAllPlanned={handleDeleteAllPlannedForSeason} adminSection={adminSection}
       />
       <TrainingModal 
-        show={showTrainingModal} onClose={() => setShowTrainingModal(false)} onSubmit={handleAddTraining}
-        newTraining={newTraining} setNewTraining={setNewTraining} groepen={groepen} coaches={coaches} locaties={locaties}
+        show={showTrainingModal} 
+        onClose={() => { 
+          setShowTrainingModal(false); 
+          setEditingItem(null); // Zorgt dat de modal leeg is de volgende keer
+        }} 
+        onSubmit={handleAddTraining}
+        editingItem={editingItem} // Geef het te bewerken item door
+        groepen={groepen} 
+        coaches={coaches} 
+        locaties={locaties}
       />
     </div>
   );
