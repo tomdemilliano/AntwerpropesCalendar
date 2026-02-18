@@ -14,7 +14,7 @@ import LocatieModal from './components/LocatieModal';
 import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
-import GroepenTable from '.components/GroepenTable';
+import GroepenTable from './components/GroepenTable';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
