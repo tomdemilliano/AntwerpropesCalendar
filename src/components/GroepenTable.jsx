@@ -25,39 +25,31 @@ const GroepenTable = ({
 
   return (
     <div className="w-full space-y-6">
-      {/* Header Sectie - Exacte kopie van de AdminTable layout */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        {/* Links: Titel en Icoon */}
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-            <Users size={20} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Trainingsgroepen</h1>
-            <p className="text-slate-500 text-sm font-medium">Beheer groepen en toegewezen coaches</p>
-          </div>
+      <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
+            <Users size={20} /> Trainingsgroepen
+          </h2>
         </div>
 
-        {/* Rechts: Seizoen en Toevoegen */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <Filter size={14} className="text-slate-400" />
             <select 
+              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
               value={activeSeasonId}
               onChange={(e) => setActiveSeasonId(e.target.value)}
-              className="bg-transparent text-sm font-bold text-slate-600 px-4 py-2 outline-none"
             >
-              {seizoenen.map(s => (
-                <option key={s.id} value={s.id}>Seizoen {s.naam}</option>
-              ))}
+              <option value="">Alle seizoenen</option>
+              {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
             </select>
           </div>
 
           <button 
-            onClick={() => { setEditingItem(null); setShowAdminModal(true); }}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all whitespace-nowrap"
-          >
-            <Plus size={18} /> Toevoegen
-          </button>
+             onClick={() => { setEditingItem(null); setShowAdminModal(true); }}
+             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+           ><Plus size={16}/> Nieuwe Groep</button>
+
         </div>
       </div>
 
