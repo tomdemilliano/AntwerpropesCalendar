@@ -630,20 +630,20 @@ const handleSaveAdminItem = async (e) => {
               db={db}
               doc={doc}
               />
-          ) : adminSection === 'beschikbareZalen' ? (
-            <ZaalPlanningTable 
-              zaalTab={zaalTab}
-              setZaalTab={setZaalTab}
-              data={zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen}
-              seizoenen={seizoenen}
-              activeSeasonId={activeSeasonId}
-              setActiveSeasonId={setActiveSeasonId}
-              locaties={locaties}
-              openEditModal={openEditModal}
-              deleteDoc={deleteDoc}
-              doc={doc}
-              db={db}
-              />
+//          ) : adminSection === 'beschikbareZalen' ? (
+//            <ZaalPlanningTable 
+//              zaalTab={zaalTab}
+//              setZaalTab={setZaalTab}
+//              data={zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen}
+//              seizoenen={seizoenen}
+//              activeSeasonId={activeSeasonId}
+//              setActiveSeasonId={setActiveSeasonId}
+//              locaties={locaties}
+//              openEditModal={openEditModal}
+//              deleteDoc={deleteDoc}
+//              doc={doc}
+//              db={db}
+//              />
           ) : (
             <AdminTable 
               adminSection={adminSection}
