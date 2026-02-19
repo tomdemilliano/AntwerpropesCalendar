@@ -71,13 +71,13 @@ const ZaalPlanningTable = ({
           ) : (
             <div className="flex gap-2">
               <button 
-                onClick={() => { setUitzonderingType('extra'); openEditModal(null, 'extra'); }}
+                onClick={() => { openEditModal(null, 'extra'); }}
                 className="bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-100"
               >
                 <PlusCircle size={16} /> Extra reservatie
               </button>
               <button 
-                onClick={() => { setUitzonderingType('onbeschikbaar'); openEditModal(null, 'onbeschikbaar'); }}
+                onClick={() => { openEditModal(null, 'onbeschikbaar'); }}
                 className="bg-red-50 text-red-600 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-red-100 transition-all border border-red-100"
               >
                 <CalendarX size={16} /> Zaal onbeschikbaar
