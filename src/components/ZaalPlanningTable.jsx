@@ -112,7 +112,7 @@ const ZaalPlanningTable = ({
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Huurprijs</th>
                   </>
                 )}
-                <th className="px-6 py-4 text-right">Acties</th>
+                <th px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acties</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
