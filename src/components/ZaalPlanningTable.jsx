@@ -64,7 +64,7 @@ const ZaalPlanningTable = ({
               onClick={() => openEditModal(null)}
               className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
             >
-              <Plus size={20} />
+              <Plus size={20} /> Toevoegen
             </button>
           ) : (
             <div className="flex gap-2">
