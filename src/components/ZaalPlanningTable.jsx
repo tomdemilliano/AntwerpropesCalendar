@@ -93,26 +93,26 @@ const ZaalPlanningTable = ({
               <tr className="bg-slate-50/50">
                 {zaalTab === 'weekplanning' ? (
                   <>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Locatie</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Zaaldelen</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Weekdag</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Beginuur</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Einduur</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Huurprijs</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locatie</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Zaaldelen</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weekdag</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Beginuur</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Einduur</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Huurprijs</th>
                   </>
                 ) : (
                   <>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Datum</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Beginuur</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Einduur</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Locatie</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Zaaldelen</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reden</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Huurprijs</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Datum</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Beginuur</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Einduur</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locatie</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Zaaldelen</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reden</th>
+                    <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Huurprijs</th>
                   </>
                 )}
-                <th px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acties</th>
+                <th className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Acties</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -121,12 +121,12 @@ const ZaalPlanningTable = ({
                   <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
                     {zaalTab === 'weekplanning' ? (
                       <>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-600">{getLocatieNaam(item.locatieId)}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.zaaldelen}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-700">{item.dag}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.startUur}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.eindUur}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">€ {item.huurprijs}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{getLocatieNaam(item.locatieId)}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.zaaldelen}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.dag}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.startUur}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.eindUur}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">€ {item.huurprijs}</td>
                       </>
                     ) : (
                       <>
@@ -143,12 +143,12 @@ const ZaalPlanningTable = ({
                         <td className="px-6 py-4 text-sm text-slate-600">
                           {item.type === 'extra' ? 'Extra zaal' : 'Onbeschikbaar'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.startUur}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.eindUur}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{getLocatieNaam(item.locatieId)}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.zaaldelen}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600 italic">{item.reden || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">€ {item.huurprijs || '0'}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.startUur}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.eindUur}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{getLocatieNaam(item.locatieId)}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.zaaldelen}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{item.reden || '-'}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">€ {item.huurprijs || '0'}</td>
                       </>
                     )}
                     <td className="px-6 py-4 text-right">
