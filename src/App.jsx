@@ -17,6 +17,7 @@ import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
 import GroepenTable from './components/GroepenTable';
 import ZaalPlanningTable from './components/ZaalPlanningTable';
+import ZaalPlanningModal from './components/ZaalPlanningModal';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
@@ -710,8 +711,18 @@ const handleSaveAdminItem = async (e) => {
         editingItem={editingItem}
         coaches={coaches}
       />
+      <ZaalPlanningModal 
+        show={showAdminModal && adminSection === 'beschikbareZalen'}
+        onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
+        onSubmit={handleSaveAdminItem}
+        editingItem={editingItem}
+        zaalTab={zaalTab}
+        uitzonderingType={uitzonderingType}
+        locaties={locaties}
+        beschikbareZalen={beschikbareZalen} // Nodig voor de logica 'Zaal onbeschikbaar'
+      />
       <AdminModal 
-        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen'].includes(adminSection)}
+        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen', 'beschikbareZalen'].includes(adminSection)}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         title={editingItem ? 'Bewerken' : (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen' ? (uitzonderingType === 'extra' ? 'Extra reservatie' : 'Zaal onbeschikbaar') : 'Nieuw Item')}
         onSubmit={handleSaveAdminItem} editingItem={editingItem} fields={currentSection.fields} renderInputField={RenderInputField} handleDeleteAllPlanned={handleDeleteAllPlannedForSeason} adminSection={adminSection}
