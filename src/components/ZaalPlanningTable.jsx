@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusCircle, CalendarX, Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import { Filter, PlusCircle, CalendarX, Plus, Edit2, Trash2, Building2 } from 'lucide-react';
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -50,14 +50,18 @@ const ZaalPlanningTable = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <select 
-            className="text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-indigo-50"
-            value={activeSeasonId}
-            onChange={(e) => setActiveSeasonId(e.target.value)}
-          >
-            {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
-          </select>
-
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <Filter size={14} className="text-slate-400" />
+            <select 
+              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
+              value={activeSeasonId}
+              onChange={(e) => setActiveSeasonId(e.target.value)}
+            >
+              <option value="">Alle seizoenen</option>
+              {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
+            </select>
+          </div>
+          
           {/* Conditionele knoppen op basis van de actieve tab */}
           {zaalTab === 'weekplanning' ? (
             <button 
