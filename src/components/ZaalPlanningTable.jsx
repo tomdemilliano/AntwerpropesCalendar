@@ -62,10 +62,8 @@ const ZaalPlanningTable = ({
           {zaalTab === 'weekplanning' ? (
             <button 
               onClick={() => openEditModal(null)}
-              className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-            >
-              <Plus size={20} /> Toevoegen
-            </button>
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+            ><Plus size={16}/> Zaal plannen</button>
           ) : (
             <div className="flex gap-2">
               <button 
