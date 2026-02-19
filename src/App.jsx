@@ -319,6 +319,8 @@ const handleSaveAdminItem = async (e) => {
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
       if (item) {
         setUitzonderingType(item.type || 'onbeschikbaar');
+      } else if (type) {
+        setUitzonderingType(type);
       }
       // Als item null is, doen we niets, want de knop in ZaalPlanningTable
       // heeft setUitzonderingType al correct aangeroepen.
