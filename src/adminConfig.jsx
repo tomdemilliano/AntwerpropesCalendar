@@ -2,6 +2,12 @@ import React from 'react';
 import { Users, User, MapPin, Building2, CalendarDays, Clock } from 'lucide-react';
 
 const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+export const GROEP_TYPES = [
+  { value: 'Competitie', label: 'Competitie' },
+  { value: 'Recrea', label: 'Recrea' },
+  { value: 'Volwassenen', label: 'Volwassenen' },
+  { value: 'Demo', label: 'Demo' }
+];
 
 export const getSectionsConfig = (
   filteredGroepen, 
@@ -59,7 +65,7 @@ export const getSectionsConfig = (
     data: filteredGroepen, 
     fields: [
       { name: 'naam', label: 'Naam Groep', type: 'text', placeholder: 'bv. Selectie A' },
-      { name: 'type', label: 'Type', type: 'select', options: ['Recrea', 'Volwassenen', 'Competitie'] },
+      { name: 'type', label: 'Type', type: 'select', options: GROEP_TYPES.map(t => t.value) },
       { name: 'aantalSpringers', label: 'Springers', type: 'number', placeholder: '0' },
       { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
     ]
