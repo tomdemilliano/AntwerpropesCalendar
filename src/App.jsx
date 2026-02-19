@@ -316,7 +316,13 @@ const handleSaveAdminItem = async (e) => {
     if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
     if (adminSection === 'vasteTrainingen') setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
     if (adminSection === 'afwijkingen') setTempVasteTraining({ datum: item.datum, startUur: item.startUur, eindUur: item.eindUur });
-    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') setUitzonderingType(item.type || 'onbeschikbaar');
+    if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
+      if (item) {
+        setUitzonderingType(item.type || 'onbeschikbaar');
+      }
+      // Als item null is, doen we niets, want de knop in ZaalPlanningTable
+      // heeft setUitzonderingType al correct aangeroepen.
+    }
     setShowAdminModal(true);
   };
 
