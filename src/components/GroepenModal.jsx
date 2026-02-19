@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus } from 'lucide-react';
-import { GROEP_TYPES } from './adminConfig';
+import { GROEP_TYPES } from '../adminConfig';
 
 const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
   const [formData, setFormData] = useState({
