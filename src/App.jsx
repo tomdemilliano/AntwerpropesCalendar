@@ -311,7 +311,7 @@ const handleSaveAdminItem = async (e) => {
     alert("Er is een fout opgetreden bij het opslaan.");
   }
 };
-  const openEditModal = (item, type == null) => {
+  const openEditModal = (item, type) => {
     setEditingItem(item);
     if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
     if (adminSection === 'vasteTrainingen') setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
