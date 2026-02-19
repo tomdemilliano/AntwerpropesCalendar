@@ -640,6 +640,7 @@ const handleSaveAdminItem = async (e) => {
               setActiveSeasonId={setActiveSeasonId}
               locaties={locaties}
               openEditModal={openEditModal}
+              setUitzonderingType={setUitzonderingType}
               deleteDoc={deleteDoc}
               doc={doc}
               db={db}
