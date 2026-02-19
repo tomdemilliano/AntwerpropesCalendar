@@ -571,6 +571,41 @@ const handleSaveAdminItem = async (e) => {
       console.error("Fout bij opslaan groep:", err);
     }
   };
+
+  const handleSaveZaalPlanning = async (formData) => {
+    try {
+      // 1. Bepaal de juiste collectie op basis van de tab
+      const collectionName = zaalTab === 'weekplanning' 
+        ? 'beschikbareZalen' 
+        : 'zaalUitzonderingen';
+      
+      // 2. Data voorbereiden (zorg dat getallen ook echt als getal worden opgeslagen)
+      const dataToSave = {
+        ...formData,
+        huurprijs: Number(formData.huurprijs) || 0,
+        seizoenId: activeSeasonId, // Altijd koppelen aan het actieve seizoen
+        updatedAt: new Date().toISOString()
+      };
+          // 3. Verwijder de technische ID uit de data body voor we opslaan
+      const docId = formData.id;
+      const cleanData = { ...dataToSave };
+      delete cleanData.id;
+      
+      if (docId) {
+        // Bewerken
+        await updateDoc(doc(db, collectionName, docId), cleanData);
+      } else {
+        // Nieuw toevoegen
+        await addDoc(collection(db, collectionName), cleanData);
+      }
+      
+      setShowAdminModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Fout bij opslaan zaalplanning:", error);
+      alert("Er is een fout opgetreden bij het opslaan.");
+    }
+  };
   
   // --- CALENDAR LOGIC (Ongewijzigd) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -714,7 +749,7 @@ const handleSaveAdminItem = async (e) => {
       <ZaalPlanningModal 
         show={showAdminModal && adminSection === 'beschikbareZalen'}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
-        onSubmit={handleSaveAdminItem}
+        onSubmit={handleSaveZaalPlanning}
         editingItem={editingItem}
         zaalTab={zaalTab}
         uitzonderingType={uitzonderingType}
