@@ -16,6 +16,7 @@ import BulkScheduleModal from './components/BulkScheduleModal';
 import TrainingModal from './components/TrainingModal';
 import AdminTable from './components/AdminTable';
 import GroepenTable from './components/GroepenTable';
+import ZaalPlanningTable from './components/ZaalPlanningTable';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
@@ -616,19 +617,33 @@ const handleSaveAdminItem = async (e) => {
           <div className="flex h-full bg-white">
             <Sidebar sections={sections} adminSection={adminSection} setAdminSection={setAdminSection} setSelectedCoachIds={setSelectedCoachIds} setTempVasteTraining={setTempVasteTraining} />
             {adminSection === 'groepen' ? (
-<GroepenTable 
-    groepen={filteredGroepen}
-    coaches={coaches}
-    seizoenen={seizoenen}
-    activeSeasonId={activeSeasonId}
-    setActiveSeasonId={setActiveSeasonId}
-    setShowAdminModal={setShowAdminModal}
-    setEditingItem={setEditingItem}
-    openEditModal={openEditModal}
-    deleteDoc={deleteDoc}
-    db={db}
-    doc={doc}
-  />
+            <GroepenTable 
+              groepen={filteredGroepen}
+              coaches={coaches}
+              seizoenen={seizoenen}
+              activeSeasonId={activeSeasonId}
+              setActiveSeasonId={setActiveSeasonId}
+              setShowAdminModal={setShowAdminModal}
+              setEditingItem={setEditingItem}
+              openEditModal={openEditModal}
+              deleteDoc={deleteDoc}
+              db={db}
+              doc={doc}
+              />
+          ) : adminSection === 'beschikbareZalen' ? (
+            <ZaalPlanningTable 
+              zaalTab={zaalTab}
+              setZaalTab={setZaalTab}
+              data={zaalTab === 'weekplanning' ? filteredBeschikbareZalen : filteredUitzonderingen}
+              seizoenen={seizoenen}
+              activeSeasonId={activeSeasonId}
+              setActiveSeasonId={setActiveSeasonId}
+              locaties={locaties}
+              openEditModal={openEditModal}
+              deleteDoc={deleteDoc}
+              doc={doc}
+              db={db}
+              />
           ) : (
             <AdminTable 
               adminSection={adminSection}
