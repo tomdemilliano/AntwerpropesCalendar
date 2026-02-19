@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus } from 'lucide-react';
+import { GROEP_TYPES } from './adminConfig';
 
 const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
   const [formData, setFormData] = useState({
@@ -78,9 +79,9 @@ const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
                   required
                 >
                   <option value="">Kies...</option>
-                  <option value="Recreatief">Recreatief</option>
-                  <option value="Wedstrijd">Wedstrijd</option>
-                  <option value="Demo">Demo</option>
+                  {GROEP_TYPES.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
