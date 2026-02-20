@@ -164,63 +164,97 @@ const LocatieModal = ({ show, onClose, onSubmit, editingItem }) => {
               </div>
             )}
 
-            {/* TAB 3: ZALEN */}
-            {activeTab === 'zalen' && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-[11px] text-slate-500 italic">Voeg hier de verschillende zalen of zaaldelen toe.</p>
-                  <button type="button" onClick={addSubLocatie} className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-all border border-indigo-100">
-                    <Plus size={14}/> Zaal toevoegen
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {formData.trainingslocaties.map((loc) => (
-                    <div key={loc.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 relative group transition-all hover:border-indigo-200">
-                      <button type="button" onClick={() => removeSubLocatie(loc.id)} className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors">
-                        <Trash2 size={16}/>
-                      </button>
-                      <div className="grid grid-cols-2 gap-3 pr-6">
-                        <div className="col-span-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Naam zaal</label>
-                          <input className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" 
-                            value={loc.naam} onChange={e => updateSubLocatie(loc.id, 'naam', e.target.value)} />
-                        </div>
-                        <div className="col-span-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Type/Deel</label>
-                          <select className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                            value={loc.zaaldeel} onChange={e => updateSubLocatie(loc.id, 'zaaldeel', e.target.value)}>
-                            <option>Volledige zaal</option>
-                            <option>1/2de zaal</option>
-                            <option>1/3de zaal</option>
-                            <option>2/3de zaal</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Afmetingen</label>
-                          <input placeholder="bv. 20x40" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" 
-                            value={loc.afmeting} onChange={e => updateSubLocatie(loc.id, 'afmeting', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Tarief/uur</label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">€</span>
-                            <input type="number" step="0.01" className="w-full p-2 pl-6 bg-white border border-slate-200 rounded-lg text-sm outline-none" 
-                              value={loc.uurtarief} onChange={e => updateSubLocatie(loc.id, 'uurtarief', e.target.value)} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {formData.trainingslocaties.length === 0 && (
-                    <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-3xl text-slate-400">
-                      <Building2 size={32} className="mx-auto mb-2 opacity-20" />
-                      <p className="text-xs">Klik op 'Zaal toevoegen' om trainingsruimtes te definiëren.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+{/* TAB 3: ZALEN */}
+{activeTab === 'zalen' && (
+  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="flex justify-between items-center mb-2">
+      <div>
+        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-tight">Beheer Zalen</h4>
+        <p className="text-[10px] text-slate-500 italic">Eén rij per trainingsruimte</p>
+      </div>
+      <button 
+        type="button" 
+        onClick={addSubLocatie} 
+        className="flex items-center gap-1.5 text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-all border border-indigo-100 shadow-sm"
+      >
+        <Plus size={14}/> Zaal toevoegen
+      </button>
+    </div>
+    
+    <div className="space-y-2">
+      {/* Kolomtitels voor de lijst (optioneel, maar handig voor overzicht) */}
+      {formData.trainingslocaties.length > 0 && (
+        <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_40px] gap-2 px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="ml-1">Naam</span>
+          <span>Type/Grootte</span>
+          <span>Afmeting</span>
+          <span>Tarief (€)</span>
+          <span></span>
+        </div>
+      )}
+
+      {formData.trainingslocaties.map((loc) => (
+        <div key={loc.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_40px] gap-2 items-center bg-slate-50 p-1.5 rounded-xl border border-slate-100 hover:border-indigo-200 transition-all">
+          
+          {/* Naam */}
+          <input 
+            placeholder="bv. Grote Zaal" 
+            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400" 
+            value={loc.naam} 
+            onChange={e => updateSubLocatie(loc.id, 'naam', e.target.value)} 
+          />
+
+          {/* Type/Zaaldeel */}
+          <select 
+            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400 appearance-none"
+            value={loc.zaaldeel} 
+            onChange={e => updateSubLocatie(loc.id, 'zaaldeel', e.target.value)}
+          >
+            <option>Volledige zaal</option>
+            <option>1/2de zaal</option>
+            <option>1/3de zaal</option>
+            <option>2/3de zaal</option>
+          </select>
+
+          {/* Afmeting */}
+          <input 
+            placeholder="20x40" 
+            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400 text-center" 
+            value={loc.afmeting} 
+            onChange={e => updateSubLocatie(loc.id, 'afmeting', e.target.value)} 
+          />
+
+          {/* Tarief */}
+          <input 
+            type="number" 
+            step="0.01" 
+            placeholder="0.00"
+            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400 text-center" 
+            value={loc.uurtarief} 
+            onChange={e => updateSubLocatie(loc.id, 'uurtarief', e.target.value)} 
+          />
+
+          {/* Verwijderknop */}
+          <button 
+            type="button" 
+            onClick={() => removeSubLocatie(loc.id)} 
+            className="flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors"
+          >
+            <Trash2 size={16}/>
+          </button>
+        </div>
+      ))}
+
+      {/* Lege staat */}
+      {formData.trainingslocaties.length === 0 && (
+        <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 bg-slate-50/30">
+          <Building2 size={24} className="mx-auto mb-2 opacity-20" />
+          <p className="text-xs">Klik op 'Zaal toevoegen' om trainingsruimtes toe te voegen.</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
           </div>
 
           {/* Footer acties */}
