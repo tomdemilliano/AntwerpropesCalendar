@@ -54,8 +54,9 @@ export const getSectionsConfig = (
     data: locaties, 
     fields: [
       { name: 'naam', label: 'Naam Locatie', type: 'text' },
-      { name: 'adres', label: 'Adres', type: 'text' }, // We slaan dit gecombineerd op of tonen het zo
-      { name: 'stad', label: 'Postcode & Gemeente', type: 'text' },
+      { name: 'straat', label: 'Straat', type: 'text' },
+      { name: 'huisnummer', label: 'Nr.', type: 'text' },
+      { name: 'gemeente', label: 'Gemeente', type: 'text' },
       { name: 'email', label: 'E-mail', type: 'text' },
       { name: 'subLocatiesCount', label: 'Zalen', type: 'number' } // Handig voor overzicht
       ]
