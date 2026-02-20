@@ -34,18 +34,31 @@ export const getSectionsConfig = (
       { isRow: true, fields: [{ name: 'startTrainingen', label: 'Start Trainingen', type: 'date' }, { name: 'eindTrainingen', label: 'Einde Trainingen', type: 'date' }] }
     ]
   },
+  // locaties: { 
+  //   title: 'Locaties', 
+  //   collection: 'locaties', 
+  //   icon: <MapPin size={18} />, 
+  //   data: locaties, 
+  //   fields: [
+  //     { name: 'naam', label: 'Naam Locatie', type: 'text', placeholder: 'bv. Sporthal De Dreef' },
+  //     { name: 'straat', label: 'Straat', type: 'text' },
+  //     { name: 'huisnummer', label: 'Nr.', type: 'text' },
+  //     { name: 'gemeente', label: 'Gemeente', type: 'text' },
+  //     { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
+  //   ]
+  // },
   locaties: { 
     title: 'Locaties', 
     collection: 'locaties', 
     icon: <MapPin size={18} />, 
     data: locaties, 
     fields: [
-      { name: 'naam', label: 'Naam Locatie', type: 'text', placeholder: 'bv. Sporthal De Dreef' },
-      { name: 'straat', label: 'Straat', type: 'text' },
-      { name: 'huisnummer', label: 'Nr.', type: 'text' },
-      { name: 'gemeente', label: 'Gemeente', type: 'text' },
-      { name: 'uurtarief', label: 'Huur/uur (€)', type: 'number', placeholder: '0.00' }
-    ]
+      { name: 'naam', label: 'Naam Locatie', type: 'text' },
+      { name: 'adres', label: 'Adres', type: 'text' }, // We slaan dit gecombineerd op of tonen het zo
+      { name: 'stad', label: 'Postcode & Gemeente', type: 'text' },
+      { name: 'email', label: 'E-mail', type: 'text' },
+      { name: 'subLocatiesCount', label: 'Zalen', type: 'number' } // Handig voor overzicht
+      ]
   },
   coaches: { 
     title: 'Coaches', 
