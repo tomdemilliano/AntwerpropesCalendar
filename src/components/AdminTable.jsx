@@ -41,6 +41,16 @@ const AdminTable = ({
     if (field.type === 'date' && value) {
       return formatDate(value);
     }
+   
+    // tel aantal sublocaties voor LocatieGrid
+    if (field.name === 'subLocatiesCount') {
+      const count = item.trainingslocaties?.length || 0;
+      return (
+        <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
+          {count} {count === 1 ? 'zaal' : 'zalen'}
+        </span>
+      );
+    }
     
     // Behoud originele logica voor ID lookups
     if (field.name === 'groepId') return groepen.find(g => g.id === value)?.naam || 'Onbekend';
