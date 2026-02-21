@@ -6,9 +6,7 @@ const BulkScheduleModal = ({
   onClose, 
   onSubmit, 
   seizoenen, 
-  selectedSeasonId, 
-  setSelectedSeasonId, 
-  activeSeasonId, 
+  activeSeasonId, // We gebruiken enkel nog het actieve seizoen
   vasteTrainingen, 
   selectedVasteIds, 
   setSelectedVasteIds,
@@ -17,7 +15,10 @@ const BulkScheduleModal = ({
 }) => {
   if (!show) return null;
 
-  // Hulpvariabele voor sorteren op weekdag
+  // Huidig seizoen ophalen voor de titel/context
+  const huidigSeizoen = seizoenen.find(s => s.id === activeSeasonId);
+
+  // Hulpvariabele voor sorteren op weekdag (Maandag eerst)
   const dagVolgorde = { 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6, 'Zondag': 7 };
 
   // Sorteer de vaste trainingen: eerst op dag, dan op beginuur
@@ -36,46 +37,47 @@ const BulkScheduleModal = ({
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header - Zelfde lijn als andere modals */}
+        
+        {/* Header */}
         <div className="p-6 border-b border-slate-50 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-xl text-white">
               <CalendarCheck size={20} />
             </div>
-            <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Bulk Inplanning</h2>
+            <div>
+              <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight leading-none">Bulk Inplanning</h2>
+              <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">
+                Seizoen: {huidigSeizoen?.naam || 'Geen seizoen geselecteerd'}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
             <X size={20}/>
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-          {/* Seizoen Selectie */}
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Kies Seizoen</label>
-            <select 
-              value={selectedSeasonId || activeSeasonId} 
-              onChange={(e) => setSelectedSeasonId(e.target.value)}
-              className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700"
-            >
-              {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
-            </select>
-          </div>
-
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
           {/* Trainingsmomenten Lijst */}
           <div>
-            <div className="flex justify-between items-end mb-2 px-1">
+            <div className="flex justify-between items-end mb-3 px-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Selecteer Trainingsmomenten</label>
               <button 
                 type="button"
-                onClick={() => setSelectedVasteIds(selectedVasteIds.length === vasteTrainingen.length ? [] : vasteTrainingen.map(v => v.id))}
+                onClick={() => {
+                  if (selectedVasteIds.length === gesorteerdeTrainingen.length) {
+                    setSelectedVasteIds([]);
+                  } else {
+                    setSelectedVasteIds(gesorteerdeTrainingen.map(v => v.id));
+                  }
+                }}
                 className="text-[10px] font-bold text-indigo-600 uppercase hover:underline"
               >
-                {selectedVasteIds.length === vasteTrainingen.length ? 'Selectie opheffen' : 'Selecteer alles'}
+                {selectedVasteIds.length === gesorteerdeTrainingen.length ? 'Wis selectie' : 'Selecteer alles'}
               </button>
             </div>
             
-            <div className="grid gap-2 pr-1 custom-scrollbar">
+            <div className="grid gap-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
               {gesorteerdeTrainingen.map(v => (
                 <label 
                   key={v.id} 
@@ -101,21 +103,27 @@ const BulkScheduleModal = ({
                   </div>
                   
                   <div className="flex flex-col">
-                    {/* Trainingsgroep duidelijk tonen */}
-                    <span className="text-sm font-black text-slate-700 leading-tight">{v.groepNaam}</span>
-                    {/* Dag, begin en einduur */}
+                    {/* Trainingsgroep is nu prominent aanwezig */}
+                    <span className="text-sm font-black text-slate-700 leading-tight">
+                      {v.groepNaam}
+                    </span>
                     <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
                       {v.dag} • {v.startUur} - {v.eindUur}
                     </span>
                   </div>
                 </label>
               ))}
+              {gesorteerdeTrainingen.length === 0 && (
+                <p className="text-xs text-slate-400 italic text-center py-4">Geen vaste trainingsmomenten gevonden voor dit seizoen.</p>
+              )}
             </div>
           </div>
 
-          {/* Checkbox Afwijkingen */}
+          {/* Optie voor Afwijkingen */}
           <div className="pt-2">
-            <label className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 cursor-pointer hover:bg-amber-100 transition-colors">
+            <label className={`flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+              includeAfwijkingen ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'
+            }`}>
               <input 
                 type="checkbox" 
                 checked={includeAfwijkingen}
@@ -123,14 +131,20 @@ const BulkScheduleModal = ({
                 className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
               />
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-amber-900">Afwijkingen inplannen</span>
-                <span className="text-[10px] text-amber-700 font-medium">Houd rekening met jaarplanning (geschrapt/gewijzigd)</span>
+                <span className="text-sm font-bold text-amber-900 leading-tight">Jaarplanning toepassen</span>
+                <span className="text-[10px] text-amber-700 font-medium uppercase tracking-tighter mt-0.5">
+                  Inclusief schrappingen & wijzigingen
+                </span>
               </div>
             </label>
           </div>
 
-          <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all transform active:scale-[0.98]">
-            Start Bulk Inplanning
+          <button 
+            type="submit" 
+            disabled={selectedVasteIds.length === 0}
+            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Planning Genereren
           </button>
         </form>
       </div>
