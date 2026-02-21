@@ -7,9 +7,14 @@ const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
     naam: '',
     type: '',
     aantalSpringers: '',
-    coachIds: []
+    coachIds: [],
+    kleur: '#6366f1' // Standaard indigo kleur
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const colorOptions = [
+    '#6366f1', '#ec4899', '#f59e0b', '#10b981', 
+    '#3b82f6', '#8b5cf6', '#ef4444', '#64748b'
+  ];
 
   useEffect(() => {
     if (editingItem) {
@@ -17,10 +22,11 @@ const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
         naam: editingItem.naam || '',
         type: editingItem.type || '',
         aantalSpringers: editingItem.aantalSpringers || '',
-        coachIds: editingItem.coachIds || []
+        coachIds: editingItem.coachIds || [],
+        kleur: editingItem.kleur || '#6366f1'
       });
     } else {
-      setFormData({ naam: '', type: '', aantalSpringers: '', coachIds: [] });
+      setFormData({ naam: '', type: '', aantalSpringers: '', coachIds: [], kleur: '#6366f1' });
     }
     setSearchQuery('');
   }, [editingItem, show]);
@@ -92,6 +98,20 @@ const GroepenModal = ({ show, onClose, onSubmit, editingItem, coaches }) => {
                   value={formData.aantalSpringers}
                   onChange={e => setFormData({...formData, aantalSpringers: e.target.value})}
                 />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Kleur Label</label>
+              <div className="flex flex-wrap gap-3 mt-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                {colorOptions.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData({...formData, kleur: color})}
+                    className={`w-8 h-8 rounded-full transition-all ${formData.kleur === color ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'opacity-70 hover:opacity-100'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
               </div>
             </div>
           </div>
