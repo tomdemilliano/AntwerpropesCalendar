@@ -46,6 +46,8 @@ const App = () => {
   const dropdownRef = useRef(null);
   const [tempVasteTraining, setTempVasteTraining] = useState({ dag: '', startUur: '', eindUur: '' });
   const [includeAfwijkingen, setIncludeAfwijkingen] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' of 'list'
+  const [filterGroepId, setFilterGroepId] = useState('all');
 
   // --- DATA STATE ---
   const [trainingen, setTrainingen] = useState([]);
@@ -621,6 +623,19 @@ const handleSaveAdminItem = async (e) => {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 
+  const displayTrainings = useMemo(() => {
+    let filtered = trainingen.filter(t => {
+      const tDate = new Date(t.datum);
+      return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+    });
+
+    if (filterGroepId !== 'all') {
+      filtered = filtered.filter(t => t.groepId === filterGroepId);
+    }
+
+    return filtered.sort((a, b) => a.datum.localeCompare(b.datum) || a.uren.localeCompare(b.uren));
+  }, [trainingen, currentMonth, currentYear, filterGroepId]);
+  
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -633,9 +648,34 @@ const handleSaveAdminItem = async (e) => {
                   <h2 className="text-lg font-bold min-w-[150px] text-center capitalize">{currentDate.toLocaleString('nl-NL', { month: 'long', year: 'numeric' })}</h2>
                   <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}><ChevronRight size={20}/></button>
                 </div>
+               
+                <div className="flex bg-slate-100 p-1 rounded-xl ml-auto">
+                 <button 
+                   onClick={() => setViewMode('grid')}
+                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                   >
+                   Raster
+                 </button>
+                 <button 
+                   onClick={() => setViewMode('list')}
+                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                   >
+                   Lijst
+                 </button>
+               </div>
+               
+               <select 
+                 value={filterGroepId}
+                 onChange={(e) => setFilterGroepId(e.target.value)}
+                 className="p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                 >
+                 <option value="all">Alle groepen</option>
+                 {groepen.map(g => <option key={g.id} value={g.id}>{g.naam}</option>)}
+               </select>
                 <button onClick={() => setShowTrainingModal(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition font-bold shadow-sm"><Plus size={18}/> Inplannen</button>
               </div>
-              <div className="grid grid-cols-7 gap-2">
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
                 {dayLabels.map(label => <div key={label} className="text-center text-[10px] font-bold text-slate-400 uppercase">{label}</div>)}
                 {[...Array(firstDayOfMonth)].map((_, i) => <div key={`e-${i}`} />)}
                 {[...Array(daysInMonth)].map((_, i) => {
@@ -657,6 +697,52 @@ const handleSaveAdminItem = async (e) => {
                   );
                 })}
               </div>
+
+) : (
+  <div className="space-y-2">
+    {displayTrainings.map((t) => {
+      const groep = groepen.find(g => g.id === t.groepId);
+      const isGeschrapt = t.status === 'geschrapt';
+      const isGewijzigd = t.status === 'gewijzigd';
+
+      return (
+        <div 
+          key={t.id}
+          className={`flex items-center gap-4 p-4 bg-white rounded-2xl border transition-all ${isGeschrapt ? 'opacity-50 grayscale' : 'hover:shadow-md'}`}
+          style={{ borderLeft: `6px solid ${groep?.kleur || '#e2e8f0'}` }}
+        >
+          <div className="flex flex-col min-w-[80px]">
+            <span className="text-xs font-black text-slate-400 uppercase">{new Date(t.datum).toLocaleDateString('nl-BE', { weekday: 'short' })}</span>
+            <span className="text-lg font-black text-slate-800 leading-none">{new Date(t.datum).getDate()}</span>
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`font-black text-slate-700 ${isGeschrapt ? 'line-through' : ''}`}>
+                {groep?.naam || 'Onbekend'}
+              </span>
+              {isGeschrapt && <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full uppercase">Geschrapt</span>}
+              {isGewijzigd && <span className="px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] font-bold rounded-full uppercase">Gewijzigd</span>}
+            </div>
+            <div className="text-xs text-slate-500 font-medium">
+              {t.uren} • {locaties.find(l => l.id === t.locatieId)?.naam}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={() => openEditModal(t)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+              <Edit2 size={16} />
+            </button>
+            {/* Voeg hier eventueel een verwijderknop toe */}
+          </div>
+        </div>
+      );
+    })}
+    {displayTrainings.length === 0 && (
+      <div className="py-20 text-center text-slate-400 italic">Geen trainingen gevonden voor deze selectie.</div>
+    )}
+  </div>
+)}            
           </div>
         ) : (
           <div className="flex h-full bg-white">
