@@ -61,6 +61,7 @@ const GroepenTable = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 text-slate-400 uppercase text-[10px] font-bold tracking-widest">
+                <th className="px-6 py-4 w-10"></th> {/* Extra kolom voor kleur */}
                 <th className="px-6 py-4">Naam</th>
                 <th className="px-6 py-4">Type</th>
                 <th className="px-6 py-4 text-center">Springers</th>
@@ -72,6 +73,12 @@ const GroepenTable = ({
               {groepen.length > 0 ? (
                 groepen.map((item) => (
                   <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div 
+                        className="w-3 h-3 rounded-full shadow-sm" 
+                        style={{ backgroundColor: item.kleur || '#e2e8f0' }}
+                      />
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600 font-medium whitespace-nowrap">
                       {item.naam}
                     </td>
