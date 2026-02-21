@@ -11,7 +11,8 @@ const BulkScheduleModal = ({
   selectedVasteIds, 
   setSelectedVasteIds,
   includeAfwijkingen,
-  setIncludeAfwijkingen
+  setIncludeAfwijkingen,
+  groepen
 }) => {
   if (!show) return null;
 
@@ -78,41 +79,46 @@ const BulkScheduleModal = ({
             </div>
             
             <div className="grid gap-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
-              {gesorteerdeTrainingen.map(v => (
-                <label 
-                  key={v.id} 
-                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${
-                    selectedVasteIds.includes(v.id) 
+              {gesorteerdeTrainingen.map(v => {
+              // Zoek de groepsnaam op basis van het groepId in de training
+                const groep = groepen.find(g => g.id === v.groepId);
+                const groepsNaam = groep ? groep.naam : 'Onbekende groep';
+      
+                return (
+                  <label 
+                    key={v.id} 
+                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${
+                      selectedVasteIds.includes(v.id) 
                       ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-200' 
                       : 'bg-white border-slate-100 hover:border-slate-200'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                    selectedVasteIds.includes(v.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-400'
-                  }`}>
-                    <input 
-                      type="checkbox" 
-                      className="hidden"
-                      checked={selectedVasteIds.includes(v.id)}
-                      onChange={(e) => {
+                    }`}
+                    >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                      selectedVasteIds.includes(v.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-400'
+                    }`}>
+                      <input 
+                        type="checkbox" 
+                        className="hidden"
+                        checked={selectedVasteIds.includes(v.id)}
+                       onChange={(e) => {
                         if(e.target.checked) setSelectedVasteIds([...selectedVasteIds, v.id]);
                         else setSelectedVasteIds(selectedVasteIds.filter(id => id !== v.id));
-                      }}
-                    />
-                    {selectedVasteIds.includes(v.id) && <CheckCircle2 size={14} className="text-white" />}
-                  </div>
-                  
-                  <div className="flex flex-col">
-                    {/* Trainingsgroep is nu prominent aanwezig */}
-                    <span className="text-sm font-black text-slate-700 leading-tight">
-                      {v.groepNaam}
-                    </span>
-                    <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                      {v.dag} • {v.startUur} - {v.eindUur}
-                    </span>
-                  </div>
-                </label>
-              ))}
+                        }}
+                      />
+                      {selectedVasteIds.includes(v.id) && <CheckCircle2 size={14} className="text-white" />}
+                    </div>
+                    <div className="flex flex-col">
+                    {/* Hier wordt nu de opgezochte groepsnaam getoond */}
+                      <span className="text-sm font-black text-slate-700 leading-tight">
+                        {groepsNaam}
+                      </span>
+                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                        {v.dag} • {v.startUur} - {v.eindUur}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
               {gesorteerdeTrainingen.length === 0 && (
                 <p className="text-xs text-slate-400 italic text-center py-4">Geen vaste trainingsmomenten gevonden voor dit seizoen.</p>
               )}
