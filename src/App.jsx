@@ -623,18 +623,27 @@ const handleSaveAdminItem = async (e) => {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const dayLabels = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 
-  const displayTrainings = useMemo(() => {
-    let filtered = trainingen.filter(t => {
-      const tDate = new Date(t.datum);
-      return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
-    });
+const displayTrainings = useMemo(() => {
+  // We halen de maand en het jaar uit de 'currentDate' state die je al hebt
+  const targetMonth = currentDate.getMonth();
+  const targetYear = currentDate.getFullYear();
 
-    if (filterGroepId !== 'all') {
-      filtered = filtered.filter(t => t.groepId === filterGroepId);
-    }
+  let filtered = trainingen.filter(t => {
+    if (!t.datum) return false;
+    const tDate = new Date(t.datum);
+    return tDate.getMonth() === targetMonth && tDate.getFullYear() === targetYear;
+  });
 
-    return filtered.sort((a, b) => a.datum.localeCompare(b.datum) || a.uren.localeCompare(b.uren));
-  }, [trainingen, currentMonth, currentYear, filterGroepId]);
+  if (filterGroepId !== 'all') {
+    filtered = filtered.filter(t => t.groepId === filterGroepId);
+  }
+
+  // Sorteren op datum en vervolgens op startuur
+  return filtered.sort((a, b) => {
+    if (a.datum !== b.datum) return a.datum.localeCompare(b.datum);
+    return a.uren.localeCompare(b.uren);
+  });
+}, [trainingen, currentDate, filterGroepId]); // Zorg dat 'currentDate' hier staat
   
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
