@@ -4,7 +4,7 @@ import {
   collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc
 } from 'firebase/firestore';
 import { handleBulkSchedule, handleDeleteAllPlannedForSeason, handleDeleteVasteTraining } from './firebaseUtils';
-import { ChevronLeft, ChevronRight, Plus, X, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Search, Edit2, Trash2 } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import AdminModal from './components/AdminModal';
