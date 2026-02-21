@@ -45,6 +45,7 @@ const App = () => {
   const [isCoachDropdownOpen, setIsCoachDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [tempVasteTraining, setTempVasteTraining] = useState({ dag: '', startUur: '', eindUur: '' });
+  const [includeAfwijkingen, setIncludeAfwijkingen] = useState(false);
 
   // --- DATA STATE ---
   const [trainingen, setTrainingen] = useState([]);
@@ -725,7 +726,7 @@ const handleSaveAdminItem = async (e) => {
 
       <BulkScheduleModal 
         show={showBulkScheduleModal} onClose={() => setShowBulkScheduleModal(false)}
-        onSubmit={async (e) => { e.preventDefault(); await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen); setShowBulkScheduleModal(false); setSelectedVasteIds([]); }}
+        onSubmit={async (e) => { e.preventDefault(); await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen, afwijkingen, includeAfwijkingen); setShowBulkScheduleModal(false); setSelectedVasteIds([]); }}
         seizoenen={seizoenen} selectedSeasonId={selectedSeasonId} setSelectedSeasonId={setSelectedSeasonId} activeSeasonId={activeSeasonId} vasteTrainingen={vasteTrainingen} selectedVasteIds={selectedVasteIds} setSelectedVasteIds={setSelectedVasteIds}
       />
       <SeizoenModal 
