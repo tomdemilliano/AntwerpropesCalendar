@@ -6,13 +6,16 @@ import { db } from './firebase';
 /**
  * Plant trainingen in bulk in voor een specifiek seizoen
  */
+// Voeg 'afwijkingen' toe aan de parameters van de functie
 export const handleBulkSchedule = async (
   selectedSeasonId, 
   activeSeasonId, 
   selectedVasteIds, 
   seizoenen, 
   vasteTrainingen,
-  trainingen
+  trainingen,
+  afwijkingen, // Nieuwe parameter
+  includeAfwijkingen // Nieuwe parameter
 ) => {
   const seasonIdToUse = selectedSeasonId || activeSeasonId;
   if (!seasonIdToUse || selectedVasteIds.length === 0) return;
@@ -21,57 +24,81 @@ export const handleBulkSchedule = async (
   const trainingStartStr = seizoen.startTrainingen || seizoen.startDatum;
   const trainingEindStr = seizoen.eindTrainingen || seizoen.eindDatum;
 
-  if (!trainingStartStr || !trainingEindStr) {
-    alert("Zorg dat de start- en einddatum van de trainingen zijn ingevuld.");
-    return;
-  }
-
   const start = new Date(trainingStartStr);
   const eind = new Date(trainingEindStr);
   const dagIndexen = { 'Zondag': 0, 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6 };
 
-  const q = query(
-    collection(db, "planning"), 
-    where("datum", ">=", trainingStartStr),
-    where("datum", "<=", trainingEindStr)
-  );
-  const existingDocs = await getDocs(q);
   const batch = writeBatch(db);
+  let count = 0;
 
   for (const vasteId of selectedVasteIds) {
     const vaste = vasteTrainingen.find(v => v.id === vasteId);
     const targetDag = dagIndexen[vaste.dag];
 
-    // Verwijder bestaande matches om dubbelingen te voorkomen
-    existingDocs.forEach(docSnap => {
-      const data = docSnap.data();
-      const d = new Date(data.datum);
-      if (data.groepId === vaste.groepId && d.getDay() === targetDag) {
-        batch.delete(docSnap.ref);
-      }
-    });
+    let loopDatum = new Date(start);
+    while (loopDatum <= eind) {
+      if (loopDatum.getDay() === targetDag) {
+        const datumStr = loopDatum.toISOString().split('T')[0];
+        
+        // Check voor afwijkingen als de gebruiker dit heeft aangevinkt
+        const afwijking = includeAfwijkingen 
+          ? afwijkingen.find(a => a.vasteId === vaste.id && a.datum === datumStr)
+          : null;
 
-    // Plan nieuwe momenten
-    let loopDate = new Date(start);
-    while (loopDate <= eind) {
-      if (loopDate.getDay() === targetDag) {
-        const formattedDate = loopDate.toISOString().split('T')[0];
-        const newDocRef = doc(collection(db, "planning"));
-        batch.set(newDocRef, {
-          datum: formattedDate,
-          groepId: vaste.groepId,
-          locatieId: vaste.locatieId,
-          uren: `${vaste.startUur}-${vaste.eindUur}`,
-          coachId: vaste.coachIds?.[0] || '',
-          coachIds: vaste.coachIds || []
-        });
+        // Skip "te behandelen" afwijkingen
+        if (afwijking && afwijking.status === 'te behandelen') {
+          // Doe niets, behandel als normale training of skip (volgens jouw logica: nog niet meenemen)
+        } 
+        else if (afwijking && afwijking.status === 'geannuleerd') {
+          // Wel toevoegen, maar met status 'geschrapt'
+          const docRef = doc(collection(db, "planning"));
+          batch.set(docRef, {
+            ...vaste,
+            id: docRef.id,
+            datum: datumStr,
+            status: 'geschrapt', // Voor weergave in kalender
+            origineleVasteId: vaste.id
+          });
+          count++;
+          
+          // Markeer afwijking als ingepland
+          batch.update(doc(db, "afwijkingen", afwijking.id), { ingepland: true });
+        } 
+        else if (afwijking && afwijking.status === 'gewijzigd') {
+          // Gebruik de nieuwe locatie en/of uren uit de afwijking
+          const docRef = doc(collection(db, "planning"));
+          batch.set(docRef, {
+            ...vaste,
+            id: docRef.id,
+            datum: datumStr,
+            locatieId: afwijking.nieuweLocatieId || vaste.locatieId,
+            uren: afwijking.nieuweUren || `${vaste.startUur}-${vaste.eindUur}`,
+            status: 'gewijzigd',
+            origineleVasteId: vaste.id
+          });
+          count++;
+
+          // Markeer afwijking als ingepland
+          batch.update(doc(db, "afwijkingen", afwijking.id), { ingepland: true });
+        } 
+        else {
+          // Standaard inplanning
+          const docRef = doc(collection(db, "planning"));
+          batch.set(docRef, {
+            ...vaste,
+            id: docRef.id,
+            datum: datumStr,
+            uren: `${vaste.startUur}-${vaste.eindUur}`
+          });
+          count++;
+        }
       }
-      loopDate.setDate(loopDate.getDate() + 1);
+      loopDatum.setDate(loopDatum.getDate() + 1);
     }
   }
 
   await batch.commit();
-  alert(`Trainingsmomenten succesvol ingepland!`);
+  alert(`${count} trainingen succesvol ingepland.`);
 };
 
 /**
