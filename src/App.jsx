@@ -727,7 +727,7 @@ const handleSaveAdminItem = async (e) => {
       <BulkScheduleModal 
         show={showBulkScheduleModal} onClose={() => setShowBulkScheduleModal(false)}
         onSubmit={async (e) => { e.preventDefault(); await handleBulkSchedule(selectedSeasonId, activeSeasonId, selectedVasteIds, seizoenen, vasteTrainingen, trainingen, afwijkingen, includeAfwijkingen); setShowBulkScheduleModal(false); setSelectedVasteIds([]); }}
-        seizoenen={seizoenen} selectedSeasonId={selectedSeasonId} setSelectedSeasonId={setSelectedSeasonId} activeSeasonId={activeSeasonId} vasteTrainingen={vasteTrainingen} selectedVasteIds={selectedVasteIds} setSelectedVasteIds={setSelectedVasteIds}
+        seizoenen={seizoenen} selectedSeasonId={selectedSeasonId} setSelectedSeasonId={setSelectedSeasonId} activeSeasonId={activeSeasonId} vasteTrainingen={vasteTrainingen} selectedVasteIds={selectedVasteIds} setSelectedVasteIds={setSelectedVasteIds} groepen={groepen}
       />
       <SeizoenModal 
         show={showAdminModal && adminSection === 'seizoenen'} 
