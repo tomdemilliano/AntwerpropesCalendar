@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { X, CalendarCheck, CheckCircle2 } from 'lucide-react';
 
 const BulkScheduleModal = ({ 
@@ -12,10 +12,21 @@ const BulkScheduleModal = ({
   vasteTrainingen, 
   selectedVasteIds, 
   setSelectedVasteIds,
-  includeAfwijkingen, // Nieuwe prop
-  setIncludeAfwijkingen // Nieuwe prop
+  includeAfwijkingen,
+  setIncludeAfwijkingen
 }) => {
   if (!show) return null;
+
+  // Hulpvariabele voor sorteren op weekdag
+  const dagVolgorde = { 'Maandag': 1, 'Dinsdag': 2, 'Woensdag': 3, 'Donderdag': 4, 'Vrijdag': 5, 'Zaterdag': 6, 'Zondag': 7 };
+
+  // Sorteer de vaste trainingen: eerst op dag, dan op beginuur
+  const gesorteerdeTrainingen = [...vasteTrainingen].sort((a, b) => {
+    if (dagVolgorde[a.dag] !== dagVolgorde[b.dag]) {
+      return dagVolgorde[a.dag] - dagVolgorde[b.dag];
+    }
+    return a.startUur.localeCompare(b.startUur);
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -25,6 +36,7 @@ const BulkScheduleModal = ({
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header - Zelfde lijn als andere modals */}
         <div className="p-6 border-b border-slate-50 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-xl text-white">
@@ -38,6 +50,7 @@ const BulkScheduleModal = ({
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* Seizoen Selectie */}
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Kies Seizoen</label>
             <select 
@@ -49,6 +62,7 @@ const BulkScheduleModal = ({
             </select>
           </div>
 
+          {/* Trainingsmomenten Lijst */}
           <div>
             <div className="flex justify-between items-end mb-2 px-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Selecteer Trainingsmomenten</label>
@@ -60,8 +74,9 @@ const BulkScheduleModal = ({
                 {selectedVasteIds.length === vasteTrainingen.length ? 'Selectie opheffen' : 'Selecteer alles'}
               </button>
             </div>
-            <div className="grid gap-2">
-              {vasteTrainingen.map(v => (
+            
+            <div className="grid gap-2 pr-1 custom-scrollbar">
+              {gesorteerdeTrainingen.map(v => (
                 <label 
                   key={v.id} 
                   className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${
@@ -84,15 +99,21 @@ const BulkScheduleModal = ({
                     />
                     {selectedVasteIds.includes(v.id) && <CheckCircle2 size={14} className="text-white" />}
                   </div>
+                  
                   <div className="flex flex-col">
-                    <span className="text-sm font-black text-slate-700">{v.groepNaam}</span>
-                    <span className="text-xs text-slate-500 font-semibold">{v.dag} • {v.startUur} - {v.eindUur}</span>
+                    {/* Trainingsgroep duidelijk tonen */}
+                    <span className="text-sm font-black text-slate-700 leading-tight">{v.groepNaam}</span>
+                    {/* Dag, begin en einduur */}
+                    <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                      {v.dag} • {v.startUur} - {v.eindUur}
+                    </span>
                   </div>
                 </label>
               ))}
             </div>
           </div>
 
+          {/* Checkbox Afwijkingen */}
           <div className="pt-2">
             <label className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 cursor-pointer hover:bg-amber-100 transition-colors">
               <input 
@@ -103,7 +124,7 @@ const BulkScheduleModal = ({
               />
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-amber-900">Afwijkingen inplannen</span>
-                <span className="text-[10px] text-amber-700 font-medium">Houd rekening met annulaties en verplaatsingen</span>
+                <span className="text-[10px] text-amber-700 font-medium">Houd rekening met jaarplanning (geschrapt/gewijzigd)</span>
               </div>
             </label>
           </div>
