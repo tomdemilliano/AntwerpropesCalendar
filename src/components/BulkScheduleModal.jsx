@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CalendarCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, CalendarCheck, CheckCircle2 } from 'lucide-react';
 
 const BulkScheduleModal = ({ 
   show, 
@@ -12,96 +12,104 @@ const BulkScheduleModal = ({
   vasteTrainingen, 
   selectedVasteIds, 
   setSelectedVasteIds,
-  includeExceptions, // Nieuwe prop
-  setIncludeExceptions // Nieuwe prop
+  includeAfwijkingen, // Nieuwe prop
+  setIncludeAfwijkingen // Nieuwe prop
 }) => {
   if (!show) return null;
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(e);
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-      <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-100">
-        {/* Header */}
-        <div className="p-8 bg-gradient-to-br from-indigo-600 to-violet-700 text-white flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-2xl">
-              <CalendarCheck size={28} />
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-2 rounded-xl text-white">
+              <CalendarCheck size={20} />
             </div>
-            <div>
-              <h2 className="text-xl font-extrabold uppercase tracking-tight leading-none">Bulk Inplanning</h2>
-              <p className="text-indigo-100 text-xs mt-1 font-medium">Genereer kalender op basis van vaste uren</p>
-            </div>
+            <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Bulk Inplanning</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
-            <X size={24}/>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+            <X size={20}/>
           </button>
         </div>
         
-        <form onSubmit={onSubmit} className="p-8 space-y-8">
-          {/* Seizoen Selectie */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <CheckCircle2 size={14} className="text-indigo-500" />
-              Kies Seizoen
-            </label>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Kies Seizoen</label>
             <select 
               value={selectedSeasonId || activeSeasonId} 
               onChange={(e) => setSelectedSeasonId(e.target.value)}
-              className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-semibold text-slate-700 focus:border-indigo-500 focus:ring-0 outline-none transition-all appearance-none cursor-pointer"
+              className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700"
             >
               {seizoenen.map(s => <option key={s.id} value={s.id}>{s.naam}</option>)}
             </select>
           </div>
 
-          {/* Trainingsmomenten Lijst */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <AlertCircle size={14} className="text-indigo-500" />
-              Selecteer Wekelijkse Trainingen
-            </label>
-            <div className="max-h-72 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+          <div>
+            <div className="flex justify-between items-end mb-2 px-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Selecteer Trainingsmomenten</label>
+              <button 
+                type="button"
+                onClick={() => setSelectedVasteIds(selectedVasteIds.length === vasteTrainingen.length ? [] : vasteTrainingen.map(v => v.id))}
+                className="text-[10px] font-bold text-indigo-600 uppercase hover:underline"
+              >
+                {selectedVasteIds.length === vasteTrainingen.length ? 'Selectie opheffen' : 'Selecteer alles'}
+              </button>
+            </div>
+            <div className="grid gap-2">
               {vasteTrainingen.map(v => (
-                <label key={v.id} className={`group flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${selectedVasteIds.includes(v.id) ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
-                  <div className="relative flex items-center">
+                <label 
+                  key={v.id} 
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${
+                    selectedVasteIds.includes(v.id) 
+                      ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-200' 
+                      : 'bg-white border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                    selectedVasteIds.includes(v.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-400'
+                  }`}>
                     <input 
                       type="checkbox" 
+                      className="hidden"
                       checked={selectedVasteIds.includes(v.id)}
                       onChange={(e) => {
                         if(e.target.checked) setSelectedVasteIds([...selectedVasteIds, v.id]);
                         else setSelectedVasteIds(selectedVasteIds.filter(id => id !== v.id));
                       }}
-                      className="w-6 h-6 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
                     />
+                    {selectedVasteIds.includes(v.id) && <CheckCircle2 size={14} className="text-white" />}
                   </div>
-                  <div className="flex flex-col flex-1">
-                    <span className={`text-sm font-bold ${selectedVasteIds.includes(v.id) ? 'text-indigo-900' : 'text-slate-700'}`}>
-                      {v.groepNaam}
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[11px] px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md font-bold uppercase tracking-wider">{v.dag}</span>
-                      <span className="text-[11px] font-semibold text-slate-400">{v.startUur} - {v.eindUur}</span>
-                    </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-black text-slate-700">{v.groepNaam}</span>
+                    <span className="text-xs text-slate-500 font-semibold">{v.dag} • {v.startUur} - {v.eindUur}</span>
                   </div>
                 </label>
               ))}
             </div>
           </div>
 
-          {/* Afwijkingen Checkbox */}
-          <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-4">
-             <input 
+          <div className="pt-2">
+            <label className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 cursor-pointer hover:bg-amber-100 transition-colors">
+              <input 
                 type="checkbox" 
-                id="exceptions"
-                checked={includeExceptions}
-                onChange={(e) => setIncludeExceptions(e.target.checked)}
-                className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-             />
-             <label htmlFor="exceptions" className="text-sm font-bold text-amber-800 cursor-pointer select-none">
-                Ook afwijkingen (geschrapt/gewijzigd) inplannen
-             </label>
+                checked={includeAfwijkingen}
+                onChange={(e) => setIncludeAfwijkingen(e.target.checked)}
+                className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-amber-900">Afwijkingen inplannen</span>
+                <span className="text-[10px] text-amber-700 font-medium">Houd rekening met annulaties en verplaatsingen</span>
+              </div>
+            </label>
           </div>
 
-          <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-[1.25rem] font-black text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:translate-y-[-2px] active:translate-y-[0px] transition-all uppercase tracking-widest">
-            GENEREER PLANNING
+          <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all transform active:scale-[0.98]">
+            Start Bulk Inplanning
           </button>
         </form>
       </div>
