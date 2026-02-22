@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Sidebar = ({ sections, adminSection, setAdminSection, setSelectedCoachIds, setTempVasteTraining }) => {
+const Sidebar = ({ sections, adminSection, setAdminSection, setSelectedCoachIds, setTempVasteTraining, setWedstrijden }) => {
   
   // Definieer de groepen en welke keys daaronder vallen
   const groups = [
@@ -10,7 +10,7 @@ const Sidebar = ({ sections, adminSection, setAdminSection, setSelectedCoachIds,
     },
     {
       header: 'Seizoensplanning',
-      items: ['groepen', 'beschikbareZalen', 'vasteTrainingen']
+      items: ['groepen', 'beschikbareZalen', 'vasteTrainingen', 'wedstrijden']
     }
   ];
 
