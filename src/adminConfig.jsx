@@ -119,7 +119,7 @@ beschikbareZalen: {
 },
 
 vasteTrainingen: {
-      title: 'Jaarplanning',
+      title: 'Trainingsplanning',
       collection: vasteTab === 'vaste-planning' ? 'vasteTrainingen' : 'afwijkingen',
       icon: <Clock size={18} />,    
       data: vasteTab === 'vaste-planning' ? filteredVasteTrainingen : filteredAfwijkingen,
