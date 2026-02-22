@@ -850,6 +850,7 @@ const displayTrainings = useMemo(() => {
               groepen={groepen}
               onEdit={openEditModal} // Gebruik de bestaande openEditModal functie
               onDelete={(item) => handleDeleteAdminItem('wedstrijden', item.id)}
+              openAddModal={() => { setEditingItem(null); setShowAdminModal(true); }}
             />
           ) : (
             <AdminTable 
