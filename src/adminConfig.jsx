@@ -93,7 +93,7 @@ export const getSectionsConfig = (
         }
       }
     ]
-  }
+  },
   
 beschikbareZalen: {
   title: 'Zaalplanning',
