@@ -52,6 +52,7 @@ const App = () => {
   const [includeAfwijkingen, setIncludeAfwijkingen] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' of 'list'
   const [filterGroepId, setFilterGroepId] = useState('all');
+  const [wedstrijden, setWedstrijden] = useState([]);
 
   // --- DATA STATE ---
   const [trainingen, setTrainingen] = useState([]);
@@ -102,10 +103,14 @@ const App = () => {
       setAfwijkingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubWedstrijdplanning = onSnapshot(query(collection(db, 'wedstrijden'), orderBy('datum', 'asc')), (snapshot) => {
+      setWedstrijden(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => { 
       unsubTrainingen(); unsubGroepen(); unsubCoaches(); unsubLocaties(); 
       unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen(); 
-      unsubUitzonderingen(); unsubAfwijkingen();
+      unsubUitzonderingen(); unsubAfwijkingen(); unsubWedstrijden();
     };
   }, [activeSeasonId]);
 
@@ -837,7 +842,15 @@ const displayTrainings = useMemo(() => {
               doc={doc}
               db={db}
               setShowBulkScheduleModal={setShowBulkScheduleModal}
-            />         
+            />
+          ) : adminSection === 'wedstrijden' ? (
+            /* HIER DE NIEUWE TABEL AANROEPEN */
+            <WedstrijdPlanningTable 
+              wedstrijden={wedstrijden.filter(w => w.seizoenId === activeSeasonId)} 
+              groepen={groepen}
+              onEdit={openEditModal} // Gebruik de bestaande openEditModal functie
+              onDelete={(item) => handleDeleteAdminItem('wedstrijden', item.id)}
+            />
           ) : (
             <AdminTable 
               adminSection={adminSection}
@@ -927,9 +940,16 @@ const displayTrainings = useMemo(() => {
         vasteTrainingen={vasteTrainingen}
         activeSeasonId={activeSeasonId}
         />
-  
+      <WedstrijdPlanningModal 
+        show={showAdminModal && adminSection === 'wedstrijden'}
+        onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
+        onSubmit={(e, data) => handleSaveAdminItem('wedstrijden', data)}
+        editingItem={editingItem}
+        groepen={groepen}
+        activeSeasonId={activeSeasonId}
+      />
       <AdminModal 
-        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen', 'beschikbareZalen', 'vasteTrainingen'].includes(adminSection)}
+        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen', 'beschikbareZalen', 'vasteTrainingen', 'wedstrijden'].includes(adminSection)}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         title={editingItem ? 'Bewerken' : 'Nieuw Item'} // Simpele titel voor de overige secties
         onSubmit={handleSaveAdminItem} 
