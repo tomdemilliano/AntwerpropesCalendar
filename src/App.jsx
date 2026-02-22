@@ -320,7 +320,7 @@ const handleSaveAdminItem = async (e) => {
     setEditingItem(item);
     if (adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
     if (adminSection === 'vasteTrainingen') {
-      setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
+      //setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
       setEditingItem(item || null);
       setShowAdminModal(true);
     }
