@@ -20,6 +20,8 @@ import ZaalPlanningTable from './components/ZaalPlanningTable';
 import ZaalPlanningModal from './components/ZaalPlanningModal';
 import TrainingsPlanningTable from './components/TrainingsPlanningTable';
 import TrainingsPlanningModal from './components/TrainingsPlanningModal';
+import WedstrijdPlanningTable from './components/WedstrijdPlanningTable';
+import WedstrijdPlanningModal from './components/WedstrijdPlanningModal';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
