@@ -103,7 +103,7 @@ const App = () => {
       setAfwijkingen(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    const unsubWedstrijdplanning = onSnapshot(query(collection(db, 'wedstrijden'), orderBy('datum', 'asc')), (snapshot) => {
+    const unsubWedstrijdPlanning = onSnapshot(query(collection(db, 'wedstrijden'), orderBy('datum', 'asc')), (snapshot) => {
       setWedstrijden(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
