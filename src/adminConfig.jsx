@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, User, MapPin, Building2, CalendarDays, Clock } from 'lucide-react';
+import { Users, User, MapPin, Building2, CalendarDays, Clock, Calendar } from 'lucide-react';
 
 const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
 export const GROEP_TYPES = [
@@ -121,7 +121,7 @@ beschikbareZalen: {
 vasteTrainingen: {
       title: 'Trainingsplanning',
       collection: vasteTab === 'vaste-planning' ? 'vasteTrainingen' : 'afwijkingen',
-      icon: <Clock size={18} />,    
+      icon: <Calendar size={18} />,    
       data: vasteTab === 'vaste-planning' ? filteredVasteTrainingen : filteredAfwijkingen,
       fields: vasteTab === 'vaste-planning' ? [
         { name: 'groepId', label: 'Groep', type: 'select', options: filteredGroepen.map(g => ({ value: g.id, label: g.naam })) },
