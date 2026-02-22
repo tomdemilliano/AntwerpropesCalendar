@@ -74,6 +74,23 @@ const TrainingsPlanningModal = ({
     return vasteTrainingen.filter(v => v.dag === geselecteerdeDagNaam);
   }, [formData.datum, vasteTrainingen, vasteTab]);
 
+  // AANPASSING 1: Auto-selectie als er slechts 1 training is
+  useEffect(() => {
+    if (vasteTab === 'afwijkingen' && relevanteVasteTrainingen.length === 1 && !formData.vasteTrainingId) {
+      setFormData(prev => ({ ...prev, vasteTrainingId: relevanteVasteTrainingen[0].id }));
+    }
+  }, [relevanteVasteTrainingen, vasteTab, formData.vasteTrainingId]);
+
+  // AANPASSING 3: Beschikbare zalen op datum (Vast + Uitzonderingen uit zaalplanning)
+  const beschikbareZalenOpDatum = useMemo(() => {
+    if (vasteTab !== 'afwijkingen' || !formData.datum) return [];
+    const datumObj = new Date(formData.datum);
+    const dagNamen = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+    const dagNaam = dagNamen[datumObj.getDay()];
+
+    return beschikbareZalen.filter(z => z.dag === dagNaam || z.datum === formData.datum);
+  }, [formData.datum, beschikbareZalen, vasteTab]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -91,6 +108,15 @@ const TrainingsPlanningModal = ({
         locatieId: value,
         startUur: gekozenZaalMoment?.startUur || prev.startUur,
         eindUur: gekozenZaalMoment?.eindUur || prev.eindUur
+      }));
+    } else if (name === 'nieuweLocatieId' && vasteTab === 'afwijkingen') {
+      // Zoek het zaalmoment op om de uren mee te pakken (voorkomt undefined in grid)
+      const gekozenZaal = beschikbareZalenOpDatum.find(z => z.id === value);
+      setFormData(prev => ({
+        ...prev,
+        nieuweLocatieId: gekozenZaal?.locatieId || value,
+        nieuwStartUur: gekozenZaal?.startUur || prev.nieuwStartUur,
+        nieuwEindUur: gekozenZaal?.eindUur || prev.nieuwEindUur
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -246,15 +272,25 @@ const TrainingsPlanningModal = ({
               {formData.status === 'gewijzigd' && (
                 <div className="bg-slate-50 p-4 rounded-2xl space-y-4 animate-in slide-in-from-top-2 duration-300">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nieuwe Zaal</label>
-                    <select name="nieuweLocatieId" value={formData.nieuweLocatieId} onChange={handleChange} required className="w-full bg-white border-none rounded-xl px-4 py-2.5 text-sm mt-1">
-                      <option value="">Selecteer zaal...</option>
-                      {locaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Beschikbare Zaal op {formData.datum}</label>
+                    <select name="nieuweLocatieId" value={formData.nieuweLocatieId} onChange={handleChange} required className="w-full bg-white border-none rounded-xl px-4 py-2.5 text-sm mt-1 focus:ring-2 ring-indigo-500/20">
+                      <option value="">Selecteer zaalmoment...</option>
+                      {beschikbareZalenOpDatum.map(z => (
+                        <option key={z.id} value={z.id}>
+                          {locaties.find(l => l.id === z.locatieId)?.naam} ({z.startUur}-{z.eindUur}) {z.datum ? '*(Extra)*' : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <input type="time" name="nieuwStartUur" value={formData.nieuwStartUur} onChange={handleChange} required className="bg-white border-none rounded-xl px-4 py-2.5 text-sm" />
-                    <input type="time" name="nieuwEindUur" value={formData.nieuwEindUur} onChange={handleChange} required className="bg-white border-none rounded-xl px-4 py-2.5 text-sm" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nieuw Startuur</label>
+                      <input type="time" name="nieuwStartUur" value={formData.nieuwStartUur} onChange={handleChange} required className="w-full bg-white border-none rounded-xl px-4 py-2.5 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nieuw Einduur</label>
+                      <input type="time" name="nieuwEindUur" value={formData.nieuwEindUur} onChange={handleChange} required className="w-full bg-white border-none rounded-xl px-4 py-2.5 text-sm" />
+                    </div>
                   </div>
                 </div>
               )}
