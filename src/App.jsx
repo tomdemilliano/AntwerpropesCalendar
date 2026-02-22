@@ -18,6 +18,7 @@ import AdminTable from './components/AdminTable';
 import GroepenTable from './components/GroepenTable';
 import ZaalPlanningTable from './components/ZaalPlanningTable';
 import ZaalPlanningModal from './components/ZaalPlanningModal';
+import TrainingsPlanningTable from './components/TrainingsPlanningTable';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
@@ -785,6 +786,25 @@ const displayTrainings = useMemo(() => {
               doc={doc}
               db={db}
               />
+
+            ) : adminSection === 'vasteTrainingen' ? (
+            <TrainingsPlanningTable 
+              vasteTab={vasteTab}
+              setVasteTab={setVasteTab}
+              vasteTrainingen={vasteTrainingen.filter(t => t.seizoenId === activeSeasonId)}
+              afwijkingen={afwijkingen.filter(a => a.seizoenId === activeSeasonId)}
+              seizoenen={seizoenen}
+              activeSeasonId={activeSeasonId}
+              setActiveSeasonId={setActiveSeasonId}
+              groepen={groepen}
+              locaties={locaties}
+              trainingen={trainingen}
+              openEditModal={openEditModal}
+              deleteDoc={deleteDoc}
+              doc={doc}
+              db={db}
+              setShowBulkScheduleModal={setShowBulkScheduleModal}
+            />         
           ) : (
             <AdminTable 
               adminSection={adminSection}
