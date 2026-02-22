@@ -110,7 +110,7 @@ const App = () => {
     return () => { 
       unsubTrainingen(); unsubGroepen(); unsubCoaches(); unsubLocaties(); 
       unsubSeizoenen(); unsubVasteTrainingen(); unsubBeschikbareZalen(); 
-      unsubUitzonderingen(); unsubAfwijkingen(); unsubWedstrijden();
+      unsubUitzonderingen(); unsubAfwijkingen(); unsubWedstrijdPlanning();
     };
   }, [activeSeasonId]);
 
