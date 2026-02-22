@@ -318,8 +318,13 @@ const handleSaveAdminItem = async (e) => {
 };
   const openEditModal = (item, type) => {
     setEditingItem(item);
-    if (adminSection === 'vasteTrainingen' || adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
-    if (adminSection === 'vasteTrainingen') setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
+    if (adminSection === 'groepen') setSelectedCoachIds(item.coachIds || []);
+    if (adminSection === 'vasteTrainingen') {
+      setTempVasteTraining({ dag: item.dag || '', startUur: item.startUur || '', eindUur: item.eindUur || '' });
+      setEditingItem(item || null);
+      setShowAdminModal(true);
+    }
+    
     if (adminSection === 'afwijkingen') setTempVasteTraining({ datum: item.datum, startUur: item.startUur, eindUur: item.eindUur });
     if (adminSection === 'beschikbareZalen' && zaalTab === 'uitzonderingen') {
       if (item) {
