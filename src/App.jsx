@@ -19,6 +19,7 @@ import GroepenTable from './components/GroepenTable';
 import ZaalPlanningTable from './components/ZaalPlanningTable';
 import ZaalPlanningModal from './components/ZaalPlanningModal';
 import TrainingsPlanningTable from './components/TrainingsPlanningTable';
+import TrainingsPlanningModal from './components/TrainingsPlanningModal';
 import { getSectionsConfig } from './adminConfig';
 
 const checkOverlap = (start1, eind1, start2, eind2) => {
@@ -619,6 +620,31 @@ const handleSaveAdminItem = async (e) => {
     }
   };
   
+  const handleSaveTrainingsPlanning = async (e, formData) => {
+    e.preventDefault();
+    // Bepaal de juiste collectie op basis van de actieve tab
+    const collectionName = vasteTab === 'vaste-planning' ? 'vasteTrainingen' : 'afwijkingen';
+    
+    try {
+      if (editingItem) {
+        // Update bestaand item
+        const docRef = doc(db, collectionName, editingItem.id);
+        await updateDoc(docRef, formData);
+      } else {
+        // Voeg nieuw item toe
+        await addDoc(collection(db, collectionName), {
+          ...formData,
+          seizoenId: activeSeasonId // Zorg dat het altijd aan het actieve seizoen gekoppeld is
+          });
+      }
+      setShowAdminModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Error saving training planning:", error);
+      alert("Er is een fout opgetreden bij het opslaan.");
+    }
+  };
+  
   // --- CALENDAR LOGIC (Ongewijzigd) ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -880,8 +906,21 @@ const displayTrainings = useMemo(() => {
         locaties={locaties}
         beschikbareZalen={beschikbareZalen} // Nodig voor de logica 'Zaal onbeschikbaar'
       />
+      {/* Trainingsplanning Modal */}
+      <TrainingsPlanningModal 
+        show={showAdminModal && adminSection === 'vasteTrainingen'}
+        onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
+        onSubmit={handleSaveTrainingsPlanning} // Deze functie maken we in de volgende stap
+        editingItem={editingItem}
+        vasteTab={vasteTab}
+        groepen={groepen}
+        locaties={locaties}
+        vasteTrainingen={vasteTrainingen}
+        activeSeasonId={activeSeasonId}
+        />
+  
       <AdminModal 
-        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen', 'beschikbareZalen'].includes(adminSection)}
+        show={showAdminModal&& !['seizoenen', 'coaches', 'locaties', 'groepen', 'beschikbareZalen', 'vasteTrainingen'].includes(adminSection)}
         onClose={() => { setShowAdminModal(false); setEditingItem(null); }}
         title={editingItem ? 'Bewerken' : 'Nieuw Item'} // Simpele titel voor de overige secties
         onSubmit={handleSaveAdminItem} 
