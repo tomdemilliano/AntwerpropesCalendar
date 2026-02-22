@@ -920,6 +920,7 @@ const displayTrainings = useMemo(() => {
         vasteTab={vasteTab}
         groepen={groepen}
         locaties={locaties}
+        beschikbareZalen={beschikbareZalen}
         coaches={coaches}
         vasteTrainingen={vasteTrainingen}
         activeSeasonId={activeSeasonId}
