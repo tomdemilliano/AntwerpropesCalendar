@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, User, MapPin, Building2, CalendarDays, Clock, Calendar } from 'lucide-react';
+import { Users, User, MapPin, Building2, CalendarDays, Clock, Calendar, Trophy } from 'lucide-react';
 
 const dagenWeek = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
 export const GROEP_TYPES = [
@@ -71,6 +71,30 @@ export const getSectionsConfig = (
       { name: 'coachIds', label: 'Vaste Coaches', type: 'tag-input' }
     ]
   },
+  
+  wedstrijden: {
+    title: 'Wedstrijdplanning',
+    collection: 'wedstrijden', 
+    icon: <Trophy size={18} />, 
+    columns: [
+      { key: 'datum', label: 'Datum' },
+      { key: 'naam', label: 'Naam Wedstrijd' },
+      { key: 'locatieNaam', label: 'Locatie' },
+      { 
+        key: 'adres', 
+        label: 'Adres',
+        render: (item) => `${item.straat} ${item.huisnummer}, ${item.postcode} ${item.gemeente}`
+      },
+      {
+        key: 'groepen', 
+        label: 'Groep(en)',
+        render: (item, { groepen }) => {
+          return item.groepIds?.map(id => groepen.find(g => g.id === id)?.naam).join(', ') || '-';
+        }
+      }
+    ]
+  }
+  
 beschikbareZalen: {
   title: 'Zaalplanning',
   collection: zaalTab === 'weekplanning' ? 'beschikbareZalen' : 'zaalUitzonderingen',
